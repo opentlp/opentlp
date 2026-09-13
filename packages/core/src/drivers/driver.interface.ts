@@ -66,6 +66,24 @@ export interface PrinterModelProfile {
      */
     notes?: string;
     manualUrl?: string;
+    /**
+     * Optional model-specific connection guidance and pairing hints overriding driver defaults.
+     */
+    connectionHints?: ConnectionHints;
+}
+
+/**
+ * Optional pairing, connection, and device discovery hints supplied by a driver or model profile.
+ */
+export interface ConnectionHints {
+    /** Custom advice or device name hints for Web Bluetooth / BLE discovery */
+    bleHint?: string;
+    /** Custom advice or device name hints for OS Bluetooth Classic pairing */
+    bluetoothClassicHint?: string;
+    /** Windows-specific Bluetooth Classic hint (e.g. "SPP Slave") */
+    windowsClassicHint?: string;
+    /** PIN code if required (e.g. "0000" or "1234") */
+    pairingPin?: string;
 }
 
 /**
@@ -210,6 +228,11 @@ export interface IPrinterDriver {
      * so that the UI does not need to maintain its own hardcoded registries.
      */
     supportedModels?: PrinterModelProfile[];
+
+    /**
+     * Optional connection guidance and pairing hints specific to this driver family.
+     */
+    readonly connectionHints?: ConnectionHints;
 
     /**
      * Match function used by the PrintManager to verify if this driver 

@@ -6,6 +6,7 @@ import type {
     PrinterCapabilities,
     PrinterModelProfile,
     UniversalPrintOptions,
+    ConnectionHints,
 } from '../driver.interface';
 import { singlePlane, type UniversalPage } from '../../types/ink';
 import { encodePeriPageRaster, peripageRasterHeader } from './peripage-raster';
@@ -39,6 +40,11 @@ export class PeriPageDriver implements IPrinterDriver {
     };
 
     readonly supportedModels: PrinterModelProfile[] = PERIPAGE_MODELS;
+
+    readonly connectionHints: ConnectionHints = {
+        bleHint: 'Turn on your PeriPage printer, click Connect, and choose your printer in the popup list.',
+        bluetoothClassicHint: 'Select your PeriPage printer in the list.'
+    };
 
     private transport?: IDeviceTransport;
     private activeProfile: PrinterModelProfile;

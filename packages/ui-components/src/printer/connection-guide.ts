@@ -3,18 +3,26 @@
  *
  * Users should not need to understand transport internals (Web Bluetooth vs Web Serial).
  * This module classifies connection methods into recommendations, alternatives,
- * and discouraged options based on the user's OS, app environment, and printer model.
+ * and discouraged options based on the user's OS, browser, app environment, and printer model.
  */
+
+import { PrintManager, type PrinterModelProfile } from 'universal-label-core';
 
 export type OSKind = 'linux' | 'windows' | 'macos' | 'android' | 'ios' | 'unknown';
 export type EnvironmentKind = 'electron' | 'browser' | 'capacitor';
+export type BrowserKind = 'chrome' | 'firefox' | 'safari' | 'edge' | 'opera' | 'unknown';
 export type GuidanceTier = 'recommended' | 'alternative' | 'discouraged';
 
 export interface PlatformInfo {
     os: OSKind;
     osName: string;
     environment: EnvironmentKind;
+    browser: BrowserKind;
+    browserName: string;
     isSecure: boolean;
+    supportsWebBluetooth: boolean;
+    supportsWebSerial: boolean;
+    supportsWebUsb: boolean;
 }
 
 export interface TransportGuidance {
@@ -28,7 +36,7 @@ export interface TransportGuidance {
 }
 
 /**
- * Detect the current operating system and runtime environment.
+ * Detect the current operating system, browser, and runtime environment.
  */
 export function detectPlatform(userAgentOverride?: string): PlatformInfo {
     const ua = userAgentOverride ?? (typeof navigator !== 'undefined' ? navigator.userAgent : '');
@@ -65,9 +73,124 @@ export function detectPlatform(userAgentOverride?: string): PlatformInfo {
         osName = 'Linux';
     }
 
+    let browser: BrowserKind = 'unknown';
+    let browserName = 'Browser';
+
+    if (/Edg\//i.test(ua)) {
+        browser = 'edge';
+        browserName = 'Microsoft Edge';
+    } else if (/OPR\/|Opera/i.test(ua)) {
+        browser = 'opera';
+        browserName = 'Opera';
+    } else if (/Firefox\//i.test(ua)) {
+        browser = 'firefox';
+        browserName = 'Firefox';
+    } else if (/Safari/i.test(ua) && !/Chrome|Chromium|CriOS|Edg|OPR/i.test(ua)) {
+        browser = 'safari';
+        browserName = 'Safari';
+    } else if (/Chrome|Chromium|CriOS/i.test(ua)) {
+        browser = 'chrome';
+        browserName = 'Google Chrome';
+    }
+
     const isSecure = typeof window !== 'undefined' ? Boolean(window.isSecureContext) : true;
 
-    return { os, osName, environment, isSecure };
+    let supportsWebBluetooth = false;
+    let supportsWebSerial = false;
+    let supportsWebUsb = false;
+
+    if (environment === 'electron') {
+        supportsWebBluetooth = true;
+        supportsWebSerial = true;
+        supportsWebUsb = true;
+    } else if (environment === 'capacitor') {
+        supportsWebBluetooth = true;
+        supportsWebSerial = false;
+        supportsWebUsb = false;
+    } else if (!userAgentOverride && typeof navigator !== 'undefined') {
+        supportsWebBluetooth = 'bluetooth' in navigator && isSecure;
+        supportsWebSerial = 'serial' in navigator && isSecure;
+        supportsWebUsb = 'usb' in navigator && isSecure;
+    } else {
+        // Fallback / mock detection when userAgentOverride is specified
+        if (browser === 'firefox' || browser === 'safari') {
+            supportsWebBluetooth = false;
+            supportsWebSerial = false;
+            supportsWebUsb = false;
+        } else if (browser === 'chrome' || browser === 'edge' || browser === 'opera') {
+            supportsWebBluetooth = os !== 'ios';
+            supportsWebSerial = os !== 'ios' && os !== 'android';
+            supportsWebUsb = os !== 'ios';
+        }
+    }
+
+    return {
+        os,
+        osName,
+        environment,
+        browser,
+        browserName,
+        isSecure,
+        supportsWebBluetooth,
+        supportsWebSerial,
+        supportsWebUsb
+    };
+}
+
+let cachedProfiles: PrinterModelProfile[] | undefined;
+function getProfiles(): PrinterModelProfile[] {
+    if (!cachedProfiles) {
+        cachedProfiles = new PrintManager().getAvailablePrinterProfiles();
+    }
+    return cachedProfiles;
+}
+
+export function resolvePrinterProfile(printerModel?: PrinterModelProfile | string): PrinterModelProfile | undefined {
+    if (!printerModel) return undefined;
+    if (typeof printerModel === 'object') return printerModel;
+
+    const query = printerModel.trim().toLowerCase();
+    if (!query) return undefined;
+
+    const cleanQuery = query.replace(/[^a-z0-9]/g, '');
+    const profiles = getProfiles();
+
+    // 1. Exact ID
+    const exact = profiles.find(p => p.id.toLowerCase() === query);
+    if (exact) return exact;
+
+    // 2. Clean ID
+    const cleanMatch = profiles.find(p => p.id.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanQuery);
+    if (cleanMatch) return cleanMatch;
+
+    // 3. Substring match on model or aliases
+    const match = profiles.find(p => {
+        const cleanModel = p.model.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (cleanModel === cleanQuery || cleanQuery.includes(cleanModel)) return true;
+        return p.aliases?.some(a => {
+            const cleanAlias = a.toLowerCase().replace(/[^a-z0-9]/g, '');
+            return cleanAlias.includes(cleanQuery) || cleanQuery.includes(cleanAlias);
+        });
+    });
+    if (match) return match;
+
+    // 4. Try PrintManager.getDriverForModel
+    const driver = new PrintManager().getDriverForModel(printerModel);
+    if (driver) {
+        const found = driver.supportedModels?.find(m =>
+            m.id.toLowerCase() === query ||
+            m.id.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanQuery
+        );
+        if (found) {
+            return found.connectionHints
+                ? found
+                : driver.connectionHints
+                ? { ...found, connectionHints: driver.connectionHints }
+                : found;
+        }
+    }
+
+    return undefined;
 }
 
 /**
@@ -76,7 +199,8 @@ export function detectPlatform(userAgentOverride?: string): PlatformInfo {
 export function getTransportGuidance(
     transportId: string,
     platform: PlatformInfo,
-    printerModelId?: string
+    printerModel?: PrinterModelProfile | string,
+    isAvailable?: boolean
 ): TransportGuidance {
     const id = transportId.toLowerCase();
     const isBle = id.includes('ble') || id === 'bluetooth' || id === 'web-bluetooth';
@@ -84,14 +208,8 @@ export function getTransportGuidance(
     const isUsb = (id.includes('usb') && !id.includes('serial')) || id === 'web-usb' || id === 'usb' || id === 'capacitor-usb';
     const isDummy = id === 'dummy';
 
-    const normalizedModel = (printerModelId ?? '').toLowerCase();
-    const isP12 = normalizedModel.includes('p12');
-    const isL13 = normalizedModel.includes('l13');
-    const isMarklife = normalizedModel.startsWith('marklife_') || isP12 || isL13;
-    const isNiimbot = normalizedModel.startsWith('niimbot_') || normalizedModel.includes('d11') || normalizedModel.includes('b21');
-    const isPhomemo = normalizedModel.startsWith('phomemo_') || normalizedModel.includes('m110') || normalizedModel.includes('m02') || normalizedModel.includes('d30');
-    const isPeriPage = normalizedModel.startsWith('peripage_') || normalizedModel.includes('peripage') || normalizedModel.includes('a6');
-    const isCatPrinter = normalizedModel.startsWith('catprinter_') || normalizedModel.includes('catprinter');
+    const profile = resolvePrinterProfile(printerModel);
+    const hints = profile?.connectionHints;
 
     // 1. DUMMY / SIMULATOR
     if (isDummy) {
@@ -104,6 +222,17 @@ export function getTransportGuidance(
 
     // 2. BLUETOOTH BLE (Direct Web Bluetooth / Capacitor BLE)
     if (isBle) {
+        // Browser does not support Web Bluetooth (e.g. Firefox, Safari)
+        if (platform.environment === 'browser' && (!platform.supportsWebBluetooth || isAvailable === false)) {
+            const browserLabel = platform.browser !== 'unknown' ? platform.browserName : 'your browser';
+            return {
+                tier: 'discouraged',
+                badge: platform.browser !== 'unknown' ? `Unsupported in ${platform.browserName}` : 'Unavailable',
+                discouragedReason: `Web Bluetooth is not supported in ${browserLabel}. Use Serial (USB & Bluetooth) or switch to a Chromium-based browser like Google Chrome or Microsoft Edge.`,
+                warning: `Web Bluetooth is unavailable in ${browserLabel}. Please use Serial (USB & Bluetooth) or open this page in Chrome or Edge.`
+            };
+        }
+
         // Linux: Web Bluetooth is notoriously unreliable / dropping GATT connections
         if (platform.os === 'linux') {
             return {
@@ -114,31 +243,31 @@ export function getTransportGuidance(
             };
         }
 
-        // L13: BLE often prints blanks or fails on several firmware revisions
-        if (isL13) {
-            return {
-                tier: 'alternative',
-                badge: 'Alternative (Serial recommended for L13)',
-                warning: 'Do NOT pair in your OS Bluetooth settings first. (Note: Many L13 printers require the Bluetooth Serial path below to print correctly).'
-            };
-        }
-
         // Windows, Android, macOS: Direct BLE is the most convenient recommended path
+        const defaultBleHint = profile
+            ? `Turn on your ${profile.brand} ${profile.model}, click Connect, and select your device in the popup list.`
+            : 'Turn on your printer, click Connect, and select your device in the popup list.';
+
         return {
             tier: 'recommended',
             badge: 'Recommended',
             warning: 'Do NOT pair this printer in your OS Bluetooth menu! Direct Bluetooth only works when the device is not paired in OS settings.',
-            hints: isP12
-                ? 'Turn on your printer, click Connect, and select the device (e.g. P12_... or P12_..._BLE) in the popup list.'
-                : isNiimbot
-                ? 'Turn on your Niimbot, click Connect, and choose your printer in the popup list.'
-                : 'Turn on your printer, click Connect, and select your device in the popup list.'
+            hints: hints?.bleHint ?? defaultBleHint
         };
     }
 
     // 3. SERIAL (USB CABLE & BLUETOOTH CLASSIC RFCOMM / SPP)
     if (isSerial) {
-        const isRecommended = platform.os === 'linux' || isL13;
+        // Serial is recommended on Linux (where BLE is flaky)
+        // OR in browsers where Web Bluetooth is unsupported (e.g. Firefox)
+        const isBleUnsupportedInBrowser = platform.environment === 'browser' && !platform.supportsWebBluetooth;
+        const isRecommended = platform.os === 'linux' || isBleUnsupportedInBrowser;
+
+        const badge = platform.os === 'linux'
+            ? 'Recommended on Linux'
+            : isBleUnsupportedInBrowser
+            ? (platform.browser !== 'unknown' ? `Recommended in ${platform.browserName}` : 'Recommended')
+            : 'USB Cable / Bluetooth Serial';
 
         const usbHint = platform.os === 'linux'
             ? 'Plug in via USB cable and click Connect (select your device, e.g. /dev/ttyUSB0 or /dev/ttyACM0). Ensure your user account is in group dialout (sudo usermod -a -G dialout $USER).'
@@ -151,33 +280,22 @@ export function getTransportGuidance(
             'Turn on your printer and click "Add device" or "Pair".'
         ];
 
-        if (isP12 && platform.os === 'windows') {
-            steps.push('Important for Windows: The P12 appears as "SPP Slave" in the Bluetooth list. Select "SPP Slave" to pair (PIN is 0000 or 1234 if prompted).');
-        } else if (isP12) {
-            steps.push('Select your printer (e.g. "P12_..."). Do NOT select the entry ending in "_BLE".');
-        } else if (isL13) {
-            steps.push('Select the entry starting with "L13_" (do NOT select "L13_..._BLE").');
-        } else if (isNiimbot) {
-            steps.push('Select your Niimbot printer in the list (e.g. "D11_...", "B21_..."). Do NOT select the entry ending in "_BLE". (PIN is 0000 or 1234 if prompted).');
-        } else if (isPhomemo) {
-            steps.push('Select your Phomemo printer in the list (e.g. "M110", "M02"). Do NOT select the entry ending in "_BLE".');
-        } else if (isPeriPage) {
-            steps.push('Select your PeriPage printer in the list. Do NOT select the entry ending in "_BLE".');
-        } else if (isCatPrinter) {
-            steps.push('Select your printer in the list (often named "MX06", "GB01", "WalkPrint", or "Print_..."). Do NOT select the entry ending in "_BLE".');
-        } else if (isMarklife) {
-            steps.push('Select your Marklife printer in the list. Do NOT select the entry ending in "_BLE".');
+        if (platform.os === 'windows' && hints?.windowsClassicHint) {
+            steps.push(hints.windowsClassicHint);
+        } else if (hints?.bluetoothClassicHint) {
+            steps.push(hints.bluetoothClassicHint);
+        } else if (profile) {
+            const pinPart = hints?.pairingPin ? ` (PIN is ${hints.pairingPin} if prompted)` : '';
+            steps.push(`Select your ${profile.brand} ${profile.model} in the list.${pinPart}`);
         } else {
-            steps.push('Select your printer name in the list. If both a standard and a "_BLE" entry appear, select the standard one (do NOT select "_BLE").');
+            steps.push('Select your printer name in the list.');
         }
 
         steps.push('Once paired in your operating system, return here, click Connect, and choose your paired printer from the list.');
 
         return {
             tier: isRecommended ? 'recommended' : 'alternative',
-            badge: isRecommended
-                ? (isL13 ? 'Recommended for L13' : 'Recommended on Linux')
-                : 'USB Cable / Bluetooth Serial',
+            badge,
             usbHint,
             hints: 'Supports wired USB cables (USB-Serial) or OS-paired Bluetooth Classic.',
             steps
@@ -186,6 +304,15 @@ export function getTransportGuidance(
 
     // 4. DIRECT USB (WebUSB / Vendor USB)
     if (isUsb) {
+        if (platform.environment === 'browser' && (!platform.supportsWebUsb || isAvailable === false)) {
+            const browserLabel = platform.browser !== 'unknown' ? platform.browserName : 'your browser';
+            return {
+                tier: 'discouraged',
+                badge: platform.browser !== 'unknown' ? `Unsupported in ${platform.browserName}` : 'Unavailable',
+                discouragedReason: `Direct WebUSB is not supported in ${browserLabel}. If connecting via USB cable, use Serial (USB & Bluetooth) instead.`
+            };
+        }
+
         if (platform.os === 'linux') {
             return {
                 tier: 'discouraged',

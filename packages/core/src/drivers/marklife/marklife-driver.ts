@@ -1,4 +1,4 @@
-import { IPrinterDriver, PrinterCapabilities, UniversalPrintOptions, PrinterModelProfile } from '../driver.interface';
+import { IPrinterDriver, PrinterCapabilities, UniversalPrintOptions, PrinterModelProfile, ConnectionHints } from '../driver.interface';
 import { singlePlane, type UniversalPage } from '../../types/ink';
 import { IDeviceTransport } from '../../core/transports/transport.interface';
 import * as Protocol from './protocol';
@@ -51,6 +51,12 @@ if (p12) {
     p12.manualUrl = 'https://fcc.report/FCC-ID/2A2AI-P12/5793950.pdf';
     p12.capabilities = { ...p12.capabilities, physical: { ...p12.capabilities.physical, headToCutterPx: 66 } };
     p12.supportLevel = 'Tested';
+    p12.connectionHints = {
+        bleHint: 'Turn on your printer, click Connect, and select the device (e.g. P12_... or P12_..._BLE) in the popup list.',
+        windowsClassicHint: 'Important for Windows: The P12 appears as "SPP Slave" in the Bluetooth list. Select "SPP Slave" to pair (PIN is 0000 or 1234 if prompted).',
+        bluetoothClassicHint: 'Select your printer (e.g. "P12_..."). Do NOT select the entry ending in "_BLE".',
+        pairingPin: '0000 or 1234'
+    };
     p12.notes = `- **OEM**: Shenzhen Yinxiaoqian Technology Co., Ltd.
 - **MCU**: YC3121-d
 - **FCC ID**: [2A2AI-P12](https://fcc.report/FCC-ID/2A2AI-P12/)
@@ -107,6 +113,10 @@ if (l13) {
         'DP-L13',
         'Silvercrest DP-L13'
     ];
+    l13.connectionHints = {
+        bleHint: 'Turn on your printer, click Connect, and select your device (e.g. L13_... or L13_..._BLE) in the popup list.',
+        bluetoothClassicHint: 'Select the entry starting with "L13_" (do NOT select "L13_..._BLE").'
+    };
     l13.notes = `One printer sold under several names, none of them Marklife's own.
 If a label maker is 15 mm, 203 dpi and answers to \`L13\`, it is very likely this
 machine whatever the box says.
@@ -234,6 +244,11 @@ export class MarklifeDriver implements IPrinterDriver {
     // this driver so the disconnected/simulated caps and the connected caps
     // agree (density range, head-to-cutter distance, etc.).
     public readonly supportedModels: PrinterModelProfile[];
+
+    public readonly connectionHints: ConnectionHints = {
+        bleHint: 'Turn on your printer, click Connect, and select your device in the popup list.',
+        bluetoothClassicHint: 'Select your Marklife printer in the list. Do NOT select the entry ending in "_BLE".'
+    };
 
     /**
      * No `'media'`: nothing in this protocol says what stock is loaded, only

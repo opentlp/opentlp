@@ -154,7 +154,9 @@ export class SettingsStore {
                 if (flag === 'true' || flag === '1') {
                     this.showVirtualPrinter = true;
                 }
-            } catch {}
+            } catch {
+                // Ignore storage/URL access errors in restricted contexts
+            }
         }
     }
 

@@ -26,6 +26,32 @@ describe('connection-guide', () => {
             expect(mac.os).toBe('macos');
             expect(mac.osName).toBe('macOS');
         });
+
+        it('detects Firefox from userAgent and sets Web Bluetooth as unsupported', () => {
+            const ff = detectPlatform('Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0');
+            expect(ff.browser).toBe('firefox');
+            expect(ff.browserName).toBe('Firefox');
+            expect(ff.supportsWebBluetooth).toBe(false);
+        });
+
+        it('detects Safari from userAgent and sets Web Bluetooth as unsupported', () => {
+            const safari = detectPlatform('Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15');
+            expect(safari.browser).toBe('safari');
+            expect(safari.browserName).toBe('Safari');
+            expect(safari.supportsWebBluetooth).toBe(false);
+        });
+
+        it('detects Edge and Chrome from userAgent', () => {
+            const edge = detectPlatform('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 Edg/128.0.0.0');
+            expect(edge.browser).toBe('edge');
+            expect(edge.browserName).toBe('Microsoft Edge');
+            expect(edge.supportsWebBluetooth).toBe(true);
+
+            const chrome = detectPlatform('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36');
+            expect(chrome.browser).toBe('chrome');
+            expect(chrome.browserName).toBe('Google Chrome');
+            expect(chrome.supportsWebBluetooth).toBe(true);
+        });
     });
 
     describe('getTransportGuidance', () => {
@@ -33,14 +59,36 @@ describe('connection-guide', () => {
             os: 'linux',
             osName: 'Linux',
             environment: 'electron',
-            isSecure: true
+            browser: 'chrome',
+            browserName: 'Google Chrome',
+            isSecure: true,
+            supportsWebBluetooth: true,
+            supportsWebSerial: true,
+            supportsWebUsb: true
         };
 
         const windowsPlatform: PlatformInfo = {
             os: 'windows',
             osName: 'Windows',
             environment: 'electron',
-            isSecure: true
+            browser: 'chrome',
+            browserName: 'Google Chrome',
+            isSecure: true,
+            supportsWebBluetooth: true,
+            supportsWebSerial: true,
+            supportsWebUsb: true
+        };
+
+        const firefoxWindowsPlatform: PlatformInfo = {
+            os: 'windows',
+            osName: 'Windows',
+            environment: 'browser',
+            browser: 'firefox',
+            browserName: 'Firefox',
+            isSecure: true,
+            supportsWebBluetooth: false,
+            supportsWebSerial: false,
+            supportsWebUsb: false
         };
 
         it('discourages Web Bluetooth on Linux and recommends Bluetooth Serial', () => {
@@ -65,12 +113,23 @@ describe('connection-guide', () => {
             expect(serialGuide.steps?.some(s => s.includes('SPP Slave'))).toBe(true);
         });
 
-        it('recommends Serial for L13 even on Windows or generic platforms', () => {
+        it('recommends Bluetooth BLE on Windows for L13, with Serial as alternative', () => {
             const bleGuide = getTransportGuidance('bluetooth', windowsPlatform, 'munbyn_l13');
-            expect(bleGuide.tier).toBe('alternative');
+            expect(bleGuide.tier).toBe('recommended');
+            expect(bleGuide.hints).toContain('L13_');
 
             const serialGuide = getTransportGuidance('serial', windowsPlatform, 'munbyn_l13');
+            expect(serialGuide.tier).toBe('alternative');
+            expect(serialGuide.steps?.some(s => s.includes('L13_') && s.includes('do NOT select'))).toBe(true);
+        });
+
+        it('recommends Serial for L13 on Linux', () => {
+            const bleGuide = getTransportGuidance('bluetooth', linuxPlatform, 'munbyn_l13');
+            expect(bleGuide.tier).toBe('discouraged');
+
+            const serialGuide = getTransportGuidance('serial', linuxPlatform, 'munbyn_l13');
             expect(serialGuide.tier).toBe('recommended');
+            expect(serialGuide.badge).toContain('Recommended on Linux');
             expect(serialGuide.steps?.some(s => s.includes('L13_') && s.includes('do NOT select'))).toBe(true);
         });
 
@@ -114,6 +173,28 @@ describe('connection-guide', () => {
             const winSerial = getTransportGuidance('serial', windowsPlatform);
             expect(winSerial.usbHint).toBeDefined();
             expect(winSerial.usbHint).toContain('COM');
+        });
+
+        it('omits _BLE ending warnings for non-Marklife printers', () => {
+            const niimbotGuide = getTransportGuidance('serial', linuxPlatform, 'niimbot_d11');
+            expect(niimbotGuide.steps?.some(s => s.includes('_BLE'))).toBe(false);
+
+            const phomemoGuide = getTransportGuidance('serial', linuxPlatform, 'phomemo_m110');
+            expect(phomemoGuide.steps?.some(s => s.includes('_BLE'))).toBe(false);
+
+            const genericGuide = getTransportGuidance('serial', linuxPlatform, '');
+            expect(genericGuide.steps?.some(s => s.includes('_BLE'))).toBe(false);
+        });
+
+        it('marks Web Bluetooth as discouraged in Firefox and recommends Serial instead', () => {
+            const bleGuide = getTransportGuidance('bluetooth', firefoxWindowsPlatform, 'marklife_p12');
+            expect(bleGuide.tier).toBe('discouraged');
+            expect(bleGuide.badge).toContain('Unsupported in Firefox');
+            expect(bleGuide.discouragedReason).toContain('Firefox');
+
+            const serialGuide = getTransportGuidance('serial', firefoxWindowsPlatform, 'marklife_p12');
+            expect(serialGuide.tier).toBe('recommended');
+            expect(serialGuide.badge).toContain('Recommended in Firefox');
         });
     });
 });

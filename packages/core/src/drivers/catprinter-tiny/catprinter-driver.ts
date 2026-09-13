@@ -1,5 +1,5 @@
 import type { IDeviceTransport } from '../../core/transports/transport.interface';
-import type { IPrinterDriver, PrinterCapabilities, PrinterModelProfile, UniversalPrintOptions } from '../driver.interface';
+import type { IPrinterDriver, PrinterCapabilities, PrinterModelProfile, UniversalPrintOptions, ConnectionHints } from '../driver.interface';
 import { singlePlane, type UniversalPage } from '../../types/ink';
 import * as Protocol from './protocol';
 import { rotateToPrintRows } from './raster';
@@ -48,6 +48,10 @@ export class CatPrinterDriver implements IPrinterDriver {
     readonly driverType = 'hardware' as const;
     readonly connectionRequirements: { services: string[]; namePrefixes: string[] };
     readonly supportedModels: PrinterModelProfile[];
+    readonly connectionHints: ConnectionHints = {
+        bleHint: 'Turn on your printer, click Connect, and choose your printer in the popup list (e.g. MX06, GB01).',
+        bluetoothClassicHint: 'Select your printer in the list (often named "MX06", "GB01", "WalkPrint", or "Print_...").'
+    };
 
     private transport?: IDeviceTransport;
     private paused = false;

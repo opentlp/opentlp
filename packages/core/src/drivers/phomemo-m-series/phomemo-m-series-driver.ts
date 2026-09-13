@@ -1,5 +1,5 @@
 import type { IDeviceTransport } from '../../core/transports/transport.interface';
-import type { IPrinterDriver, PrinterCapabilities, PrinterModelProfile, UniversalPrintOptions } from '../driver.interface';
+import type { IPrinterDriver, PrinterCapabilities, PrinterModelProfile, UniversalPrintOptions, ConnectionHints } from '../driver.interface';
 import { singlePlane, type UniversalPage } from '../../types/ink';
 import * as Protocol from './m-series-protocol';
 import { encodeRotatedRaster } from './raster';
@@ -54,6 +54,10 @@ export class PhomemoMSeriesDriver implements IPrinterDriver {
         namePrefixes: MODELS.flatMap(model => [model.model, ...(model.bluetoothNames ?? [])])
     };
     readonly supportedModels = PHOMEMO_M_SERIES_MODELS;
+    readonly connectionHints: ConnectionHints = {
+        bleHint: 'Turn on your Phomemo, click Connect, and choose your printer in the popup list.',
+        bluetoothClassicHint: 'Select your Phomemo printer in the list.'
+    };
 
     private transport?: IDeviceTransport;
     private deviceName = '';

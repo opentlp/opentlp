@@ -78,8 +78,11 @@
             discouraged: 2
         };
         return [...visibleTransports].sort((a, b) => {
-            const guideA = getTransportGuidance(a.id, platform, selectedPrinterModel);
-            const guideB = getTransportGuidance(b.id, platform, selectedPrinterModel);
+            if (a.available !== b.available) {
+                return a.available ? -1 : 1;
+            }
+            const guideA = getTransportGuidance(a.id, platform, currentModelProfile || selectedPrinterModel, a.available);
+            const guideB = getTransportGuidance(b.id, platform, currentModelProfile || selectedPrinterModel, b.available);
             const rankDiff = tierRank[guideA.tier] - tierRank[guideB.tier];
             if (rankDiff !== 0) return rankDiff;
             return 0;
@@ -200,7 +203,7 @@
 
         <div class="options">
             {#each sortedTransports as option (option.id)}
-                {@const guidance = getTransportGuidance(option.id, platform, selectedPrinterModel)}
+                {@const guidance = getTransportGuidance(option.id, platform, currentModelProfile || selectedPrinterModel, option.available)}
                 {@const isDiscouraged = guidance.tier === 'discouraged'}
                 {@const isUnlocked = !isDiscouraged || allowedAnyway[option.id]}
                 <div

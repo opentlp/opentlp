@@ -104,7 +104,12 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
             for (const profile of driver.supportedModels || []) {
                 if (!seen.has(profile.id)) {
                     seen.add(profile.id);
-                    uniqueProfiles.push(profile);
+                    const mergedProfile: PrinterModelProfile = profile.connectionHints
+                        ? profile
+                        : driver.connectionHints
+                        ? { ...profile, connectionHints: driver.connectionHints }
+                        : profile;
+                    uniqueProfiles.push(mergedProfile);
                 }
             }
         }
@@ -121,11 +126,21 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
      */
     getDriverForModel(modelId: string): IPrinterDriver | undefined {
         const idLower = modelId.toLowerCase();
+        const cleanId = idLower.replace(/[^a-z0-9]/g, '');
         return this.registeredDrivers.find(driver =>
             driver.supportedModels?.some(m =>
                 m.id.toLowerCase() === idLower ||
+                m.id.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanId ||
                 m.model.toLowerCase() === idLower ||
-                (m.aliases && m.aliases.some(alias => alias.toLowerCase().includes(idLower) || idLower.includes(alias.toLowerCase())))
+                m.model.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanId ||
+                (m.aliases && m.aliases.some(alias => {
+                    const aliasLower = alias.toLowerCase();
+                    const cleanAlias = aliasLower.replace(/[^a-z0-9]/g, '');
+                    return aliasLower.includes(idLower) ||
+                        idLower.includes(aliasLower) ||
+                        cleanAlias.includes(cleanId) ||
+                        cleanId.includes(cleanAlias);
+                }))
             )
         );
     }

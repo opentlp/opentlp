@@ -1,5 +1,5 @@
 import type { IDeviceTransport } from '../../core/transports/transport.interface';
-import type { IPrinterDriver, PrinterCapabilities, PrinterModelProfile, UniversalPrintOptions } from '../driver.interface';
+import type { IPrinterDriver, PrinterCapabilities, PrinterModelProfile, UniversalPrintOptions, ConnectionHints } from '../driver.interface';
 import { singlePlane, type UniversalPage } from '../../types/ink';
 import * as Protocol from './p12-protocol';
 import { encodeRotatedRaster } from './raster';
@@ -41,6 +41,10 @@ export class PhomemoP12Driver implements IPrinterDriver {
     readonly driverType = 'hardware' as const;
     readonly connectionRequirements = { services: [SERVICE], namePrefixes: ['P12 PRO', 'P12PRO', 'P12', 'A30'] };
     readonly supportedModels = PHOMEMO_P12_MODELS;
+    readonly connectionHints: ConnectionHints = {
+        bleHint: 'Turn on your printer, click Connect, and select your device in the popup list.',
+        bluetoothClassicHint: 'Select your Phomemo printer in the list.'
+    };
 
     private transport?: IDeviceTransport;
     private deviceName = '';

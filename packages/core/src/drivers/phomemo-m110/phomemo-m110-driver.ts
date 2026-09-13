@@ -51,6 +51,10 @@ export class PhomemoM110Driver implements IPrinterDriver {
         namePrefixes: MODELS.flatMap(model => [model.model, ...(model.bluetoothPrefixes ?? [])])
     };
     readonly supportedModels = PHOMEMO_M110_MODELS;
+    readonly connectionHints = {
+        bleHint: 'Turn on your Phomemo, click Connect, and choose your printer in the popup list.',
+        bluetoothClassicHint: 'Select your Phomemo printer in the list (e.g. "M110", "M02").'
+    };
 
     private transport?: IDeviceTransport;
     private deviceName = '';

@@ -149,6 +149,12 @@ export class NiimbotDriver implements IPrinterDriver {
         namePrefixes: ['Niimbot', 'D11', 'B21', 'B1']
     };
 
+    public readonly connectionHints = {
+        bleHint: 'Turn on your Niimbot, click Connect, and choose your printer in the popup list.',
+        bluetoothClassicHint: 'Select your Niimbot printer in the list (e.g. "D11_...", "B21_..."). (PIN is 0000 or 1234 if prompted).',
+        pairingPin: '0000 or 1234'
+    };
+
     public readonly reports = [
         'battery', 'deviceName', 'serialNumber', 'firmwareVersion',
         'hardwareVersion', 'media'
