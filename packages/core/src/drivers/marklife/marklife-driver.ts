@@ -1,4 +1,4 @@
-import { IPrinterDriver, PrinterCapabilities, UniversalPrintOptions } from '../driver.interface';
+import { IPrinterDriver, PrinterCapabilities, UniversalPrintOptions, PrinterModelProfile } from '../driver.interface';
 import { singlePlane, type UniversalPage } from '../../types/ink';
 import { IDeviceTransport } from '../../core/transports/transport.interface';
 import * as Protocol from './protocol';
@@ -103,7 +103,9 @@ if (l13) {
     l13.aliases = [
         'Silvercrest Thermo Label Printer',
         'MUNBYN L13 Label Printer',
-        'Luckjingle L13 Mini Label Maker'
+        'Luckjingle L13 Mini Label Maker',
+        'DP-L13',
+        'Silvercrest DP-L13'
     ];
     l13.notes = `One printer sold under several names, none of them Marklife's own.
 If a label maker is 15 mm, 203 dpi and answers to \`L13\`, it is very likely this
@@ -192,7 +194,7 @@ export const MARKLIFE_HARDWARE_MODELS = [
  *
  * Matched on the advertised name prefix, the same way the official app does.
  */
-const LEGACY_L11_PREFIXES = ['LP90', 'L13', 'DP-L13'];
+export const LEGACY_L11_PREFIXES = ['LP90', 'L13', 'DP-L13', 'SILVERCREST', 'MUNBYN', 'LUCKJINGLE'];
 
 export type MarklifeDialect = 'auto' | 'standard' | 'legacy';
 
@@ -223,21 +225,15 @@ export class MarklifeDriver implements IPrinterDriver {
     public readonly driverType = 'hardware' as const;
 
     // The Universal Print Manager will request these services
-    public readonly connectionRequirements = {
-        services: [
-            '0000ff00-0000-1000-8000-00805f9b34fb',
-            '49535343-fe7d-4ae5-8fa9-9fafd205e455' // INFO_SERVICE
-        ],
-        namePrefixes: [
-            ...MARKLIFE_PROFILES.flatMap(p => p.prefixes),
-            'Marklife', 'P12_'
-        ]
+    public readonly connectionRequirements: {
+        services: string[];
+        namePrefixes?: string[];
     };
 
     // Offline simulation profiles. Values mirror the live getCapabilities() of
     // this driver so the disconnected/simulated caps and the connected caps
     // agree (density range, head-to-cutter distance, etc.).
-    public readonly supportedModels = MARKLIFE_HARDWARE_MODELS;
+    public readonly supportedModels: PrinterModelProfile[];
 
     /**
      * No `'media'`: nothing in this protocol says what stock is loaded, only
@@ -257,6 +253,40 @@ export class MarklifeDriver implements IPrinterDriver {
 
     constructor(public readonly dialect: MarklifeDialect = 'auto') {
         this.name = dialect === 'legacy' ? "Marklife-Legacy-L11" : "Marklife-Protocol-0x1F";
+        const isLegacy = (m: PrinterModelProfile) =>
+            m.model === 'L13' || m.model === 'LP90' || m.id === 'marklife_l13' || m.id === 'marklife_lp90';
+        if (dialect === 'legacy') {
+            this.supportedModels = MARKLIFE_HARDWARE_MODELS.filter(isLegacy);
+            this.connectionRequirements = {
+                services: [
+                    '0000ff00-0000-1000-8000-00805f9b34fb',
+                    '49535343-fe7d-4ae5-8fa9-9fafd205e455'
+                ],
+                namePrefixes: [...LEGACY_L11_PREFIXES]
+            };
+        } else {
+            this.supportedModels = MARKLIFE_HARDWARE_MODELS.filter(m => !isLegacy(m));
+            this.connectionRequirements = {
+                services: [
+                    '0000ff00-0000-1000-8000-00805f9b34fb',
+                    '49535343-fe7d-4ae5-8fa9-9fafd205e455'
+                ],
+                namePrefixes: [
+                    ...MARKLIFE_PROFILES.flatMap(p => p.prefixes).filter(p => !LEGACY_L11_PREFIXES.includes(p.toUpperCase())),
+                    'Marklife', 'P12_'
+                ]
+            };
+        }
+    }
+
+    public setModel(model: string): void {
+        const lower = model.toLowerCase();
+        const found = MARKLIFE_HARDWARE_MODELS.find(
+            m => m.id.toLowerCase() === lower ||
+                 m.model.toLowerCase() === lower ||
+                 (m.aliases && (m.aliases as string[]).some(a => a.toLowerCase().includes(lower) || lower.includes(a.toLowerCase())))
+        );
+        this.detectedModel = found ? found.model : model;
     }
 
     /** Convert a millimetre feed distance to printer dots (8 dpmm). */
@@ -290,7 +320,12 @@ export class MarklifeDriver implements IPrinterDriver {
             this.detectedModel,
             this.transport?.getDeviceName()
         ].filter(Boolean).map(n => n!.toUpperCase());
-        return names.some(n => n.includes('L13')) ? 0x03 : 0x02;
+        return names.some(n =>
+            n.includes('L13') ||
+            n.includes('SILVERCREST') ||
+            n.includes('MUNBYN') ||
+            n.includes('LUCKJINGLE')
+        ) ? 0x03 : 0x02;
     }
 
     /** Concatenate command fragments into one job buffer. */
@@ -310,7 +345,7 @@ export class MarklifeDriver implements IPrinterDriver {
         }
 
         const isLegacyModel = LEGACY_L11_PREFIXES.some(prefix => upper.includes(prefix));
-        if (this.dialect === 'standard' && isLegacyModel) {
+        if (isLegacyModel) {
             return false;
         }
 
@@ -396,7 +431,9 @@ export class MarklifeDriver implements IPrinterDriver {
         // family, and absent on the cutter-less L13. Reading it from the matched
         // model keeps connected and offline profiles consistent.
         const matched = MARKLIFE_HARDWARE_MODELS.find(
-            m => deviceName.includes(m.model.toLowerCase())
+            m => deviceName.includes(m.model.toLowerCase()) ||
+                 deviceName.includes(m.id.toLowerCase()) ||
+                 (m.aliases && (m.aliases as string[]).some(a => deviceName.includes(a.toLowerCase()) || a.toLowerCase().includes(deviceName)))
         );
 
         return {

@@ -94,7 +94,8 @@
             await session.connect(
                 option.create(),
                 option.isDummy ? DUMMY_PROFILES[dummyProfileIdx] : undefined,
-                option.isDummy ? undefined : driverOverride || undefined
+                option.isDummy ? undefined : driverOverride || undefined,
+                option.isDummy ? undefined : selectedPrinterModel || undefined
             );
         } catch (err) {
             const e = toPrinterError(err);

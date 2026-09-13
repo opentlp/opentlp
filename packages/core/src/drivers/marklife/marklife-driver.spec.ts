@@ -50,6 +50,34 @@ describe('MarklifeDriver', () => {
         expect(driver.isCompatible('marklife')).toBe(true);
         expect(driver.isCompatible('Printer01')).toBe(false);
         expect(driver.isCompatible('Niimbot_D11')).toBe(false);
+
+        // Auto dialect yields legacy L11 models to legacy driver
+        expect(driver.isCompatible('L13_81E0')).toBe(false);
+        expect(driver.isCompatible('DP-L13')).toBe(false);
+        expect(driver.isCompatible('LP90')).toBe(false);
+        expect(driver.isCompatible('Silvercrest')).toBe(false);
+
+        const legacyDriver = new MarklifeDriver('legacy');
+        expect(legacyDriver.isCompatible('L13_81E0')).toBe(true);
+        expect(legacyDriver.isCompatible('L13_81E0_BLE')).toBe(true);
+        expect(legacyDriver.isCompatible('DP-L13')).toBe(true);
+        expect(legacyDriver.isCompatible('LP90')).toBe(true);
+        expect(legacyDriver.isCompatible('Silvercrest Thermo Label Printer')).toBe(true);
+        expect(legacyDriver.isCompatible('MUNBYN L13')).toBe(true);
+        expect(legacyDriver.isCompatible('Luckjingle')).toBe(true);
+        expect(legacyDriver.isCompatible('P12_PRO')).toBe(false);
+        expect(legacyDriver.isCompatible('P50')).toBe(false);
+    });
+
+    it('configures model-specific capabilities via setModel', async () => {
+        const legacyDriver = new MarklifeDriver('legacy');
+        legacyDriver.setModel('marklife_l13');
+        const transport = new MockTransport('/dev/rfcomm0');
+        await legacyDriver.bindTransport(transport);
+        expect(legacyDriver.getCapabilities()).toMatchObject({
+            canvasHeightPx: 96,
+            driverName: 'Marklife (Legacy L11)'
+        });
     });
 
     it('should correctly expose capabilities based on transport name', async () => {

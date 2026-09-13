@@ -218,6 +218,13 @@ export interface IPrinterDriver {
     isCompatible(deviceName: string): boolean;
 
     /**
+     * Inform the driver of the user-selected or matched model ID/name,
+     * allowing it to configure model-specific offsets, dimensions, or protocol options
+     * when connecting via generic transports (e.g. serial ports without advertised device names).
+     */
+    setModel?(model: string): void;
+
+    /**
      * Bind the driver to a connected transport.
      */
     bindTransport(transport: IDeviceTransport): Promise<void>;

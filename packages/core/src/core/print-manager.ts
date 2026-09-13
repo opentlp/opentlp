@@ -117,11 +117,25 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
     }
 
     /**
+     * Finds a registered driver that explicitly supports the given model ID or model name.
+     */
+    getDriverForModel(modelId: string): IPrinterDriver | undefined {
+        const idLower = modelId.toLowerCase();
+        return this.registeredDrivers.find(driver =>
+            driver.supportedModels?.some(m =>
+                m.id.toLowerCase() === idLower ||
+                m.model.toLowerCase() === idLower ||
+                (m.aliases && m.aliases.some(alias => alias.toLowerCase().includes(idLower) || idLower.includes(alias.toLowerCase())))
+            )
+        );
+    }
+
+    /**
      * Connects to a printer utilizing the provided transport.
      * The Manager aggregates connection requirements from all registered drivers
      * so that any supported printer can be discovered.
      */
-    async connect(transport: IDeviceTransport, preferredDriverName?: string): Promise<void> {
+    async connect(transport: IDeviceTransport, preferredDriverName?: string, modelId?: string): Promise<void> {
         if (this.activeTransport && this.activeTransport.isConnected()) {
             await this.disconnect();
         }
@@ -169,7 +183,7 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
             await this.activeTransport.connect(
                 this.activeTransport.filterType === 'usb' ? undefined : filters
             );
-            await this.bindDriver(preferredDriverName);
+            await this.bindDriver(preferredDriverName, modelId);
         } catch (error: any) {
             this.activeTransport = undefined;
             this.emit("error", error);
@@ -184,7 +198,7 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
      * Use this when you have manually called `transport.connectByDeviceId()` or
      * otherwise established the transport connection yourself.
      */
-    async connectWithTransport(transport: IDeviceTransport, preferredDriverName?: string): Promise<void> {
+    async connectWithTransport(transport: IDeviceTransport, preferredDriverName?: string, modelId?: string): Promise<void> {
         if (!transport.isConnected()) {
             throw new Error("connectWithTransport() requires an already-connected transport.");
         }
@@ -196,7 +210,7 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
         this.activeTransport = transport;
 
         try {
-            await this.bindDriver(preferredDriverName);
+            await this.bindDriver(preferredDriverName, modelId);
         } catch (error: any) {
             this.activeTransport = undefined;
             this.emit("error", error);
@@ -205,7 +219,7 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
     }
 
     /** Internal: wire up event listeners and match a driver for the active transport. */
-    private async bindDriver(preferredDriverName?: string): Promise<void> {
+    private async bindDriver(preferredDriverName?: string, modelId?: string): Promise<void> {
         if (!this.activeTransport) throw new Error("No active transport.");
 
         this.activeTransport.on("disconnected", this.handleDisconnect);
@@ -217,7 +231,7 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
         if (preferredDriverName) {
             const preferred = this.registeredDrivers.find(driver => driver.name === preferredDriverName);
             if (!preferred) throw new Error(`Unknown printer driver: ${preferredDriverName}`);
-            await this.bindMatchedDriver(preferred);
+            await this.bindMatchedDriver(preferred, modelId);
             return;
         }
 
@@ -238,7 +252,14 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
             }
         }
 
-        const matchedDriver = chooseDriver(nameMatches, serviceMatches, deviceName);
+        let matchedDriver = chooseDriver(nameMatches, serviceMatches, deviceName);
+
+        if (!matchedDriver && modelId) {
+            matchedDriver = this.getDriverForModel(modelId);
+            if (matchedDriver) {
+                this.logger('info', `[PrintManager] Device name/services inconclusive, matched driver by modelId '${modelId}': ${matchedDriver.name}`);
+            }
+        }
 
         if (!matchedDriver) {
             // Fallback: If name is missing and only one hardware driver is registered, use it.
@@ -246,7 +267,7 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
             if (hardwareDrivers.length === 1) {
                 const onlyDriver = hardwareDrivers[0];
                 this.logger('info', `[PrintManager] Still no match, but only one hardware driver registered (${onlyDriver.name}). Using fallback.`);
-                await this.bindMatchedDriver(onlyDriver);
+                await this.bindMatchedDriver(onlyDriver, modelId);
                 return;
             }
         }
@@ -255,11 +276,14 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
             throw new Error(`Connected to ${deviceName || 'Unknown device'} but no compatible driver was found. Please select your printer protocol manually.`);
         }
 
-        await this.bindMatchedDriver(matchedDriver);
+        await this.bindMatchedDriver(matchedDriver, modelId);
     }
 
-    private async bindMatchedDriver(driver: IPrinterDriver): Promise<void> {
+    private async bindMatchedDriver(driver: IPrinterDriver, modelId?: string): Promise<void> {
         if (!this.activeTransport) throw new Error("No active transport.");
+        if (modelId && driver.setModel) {
+            driver.setModel(modelId);
+        }
         this.activeDriver = driver;
         await driver.bindTransport(this.activeTransport);
         this.emit("connected", driver);

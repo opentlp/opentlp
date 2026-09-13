@@ -216,4 +216,48 @@ describe('PrintManager', () => {
         expect(endSpy).toHaveBeenCalled();
         expect(idleEvent).toHaveBeenCalled();
     });
+
+    it('automatically matches L13_81E0 to Marklife-Legacy-L11 without ambiguous driver error', async () => {
+        const transport = new FastMockTransport('L13_81E0', ['0000ff00-0000-1000-8000-00805f9b34fb']);
+        const connectedEvent = vi.fn();
+        printManager.on('connected', connectedEvent);
+
+        await printManager.connect(transport);
+        expect(connectedEvent).toHaveBeenCalled();
+        const boundDriver = connectedEvent.mock.calls[0][0];
+        expect(boundDriver.name).toBe('Marklife-Legacy-L11');
+    });
+
+    it('automatically matches DP-L13 to Marklife-Legacy-L11', async () => {
+        const transport = new FastMockTransport('DP-L13');
+        const connectedEvent = vi.fn();
+        printManager.on('connected', connectedEvent);
+
+        await printManager.connect(transport);
+        expect(connectedEvent).toHaveBeenCalled();
+        const boundDriver = connectedEvent.mock.calls[0][0];
+        expect(boundDriver.name).toBe('Marklife-Legacy-L11');
+    });
+
+    it('automatically matches P50_B8F0 to Marklife-Protocol-0x1F', async () => {
+        const transport = new FastMockTransport('P50_B8F0', ['0000ff00-0000-1000-8000-00805f9b34fb']);
+        const connectedEvent = vi.fn();
+        printManager.on('connected', connectedEvent);
+
+        await printManager.connect(transport);
+        expect(connectedEvent).toHaveBeenCalled();
+        const boundDriver = connectedEvent.mock.calls[0][0];
+        expect(boundDriver.name).toBe('Marklife-Protocol-0x1F');
+    });
+
+    it('falls back to driver matching selected modelId for generic serial ports without device name', async () => {
+        const transport = new FastMockTransport('/dev/rfcomm0');
+        const connectedEvent = vi.fn();
+        printManager.on('connected', connectedEvent);
+
+        await printManager.connect(transport, undefined, 'marklife_l13');
+        expect(connectedEvent).toHaveBeenCalled();
+        const boundDriver = connectedEvent.mock.calls[0][0];
+        expect(boundDriver.name).toBe('Marklife-Legacy-L11');
+    });
 });
