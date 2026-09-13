@@ -3,7 +3,7 @@
      * Printer connection UI.
      *
      * Users think in terms of:
-     * 1. Which printer they have (or Automatic).
+     * 1. Which printer they have (e.g. Marklife P12, Munbyn L13, or Automatic).
      * 2. Wireless (Bluetooth) vs Wired (USB).
      *
      * Transports are visually classified into:
@@ -22,6 +22,7 @@
     import { toPrinterError } from 'universal-label-core';
     import { errorText, canRetry } from '../printer/messages';
     import { globalSettings as settings, PRINTER_PROFILES } from '../stores/settings.svelte';
+    import PrinterModelPicker from './PrinterModelPicker.svelte';
     import {
         detectPlatform,
         getTransportGuidance,
@@ -44,15 +45,20 @@
     let busyId = $state<string | null>(null);
     let lastTransportId = $state<string | null>(null);
 
-    let selectedPrinterModel = $state(settings.defaultPrinter || '');
+    let selectedPrinterModel = $state(settings.defaultPrinter || 'marklife_p12');
+    let isPickingPrinter = $state(false);
     const platform: PlatformInfo = detectPlatform();
     let allowedAnyway = $state<Record<string, boolean>>({});
 
-    function onPrinterChange(e: Event): void {
-        const id = (e.currentTarget as HTMLSelectElement).value;
+    const currentModelProfile = $derived(
+        PRINTER_PROFILES.find(p => p.id === selectedPrinterModel)
+    );
+
+    function chooseModel(id: string): void {
         selectedPrinterModel = id;
         settings.defaultPrinter = id;
         settings.save();
+        isPickingPrinter = false;
     }
 
     const sortedTransports = $derived.by(() => {
@@ -129,43 +135,55 @@
 
 <div class="panel">
     {#if snap.state === 'disconnected' || snap.state === 'connecting'}
-        <!-- Printer Model Selector & Guidance Anchor -->
-        <div class="printer-selector">
-            <div class="row">
-                <label class="printer-label" for="printer-model-select">
-                    <strong>Your printer</strong>
-                    <small>Tailors connection guidance and device names</small>
-                </label>
-                <select
-                    id="printer-model-select"
-                    value={selectedPrinterModel}
-                    onchange={onPrinterChange}
-                    disabled={snap.state === 'connecting'}
-                >
-                    <option value="">Automatic / Not sure</option>
-                    {#each PRINTER_PROFILES as p (p.id)}
-                        <option value={p.id}>
-                            {p.rebadgeOnly ? `${p.brand}-compatible` : p.brand} {p.model}
-                        </option>
-                    {/each}
-                </select>
-            </div>
-            <details class="advanced-protocol">
-                <summary>Protocol family override: {driverOverride || 'Automatic'}</summary>
-                <div class="protocol-content">
-                    <label>
-                        <span>Force driver family:</span>
-                        <select bind:value={driverOverride} disabled={snap.state === 'connecting'}>
-                            <option value="">Automatic (Auto-detect by name)</option>
-                            {#each driverChoices as driver (driver.name)}
-                                <option value={driver.name}>{driver.name}</option>
-                            {/each}
-                        </select>
-                    </label>
-                    <small class="desc">Only change if your printer is an unbranded rebadge that needs a specific driver.</small>
+        <!-- Printer Model Bar & Searchable Visual Picker -->
+        <div class="printer-model-bar">
+            <div class="model-summary">
+                <span class="model-icon"><Icon name="printer" size={20} /></span>
+                <div class="model-info">
+                    <span class="model-label">Your printer model</span>
+                    <strong class="model-name">
+                        {#if currentModelProfile}
+                            {currentModelProfile.rebadgeOnly ? `${currentModelProfile.brand}-compatible` : currentModelProfile.brand} {currentModelProfile.model}
+                        {:else}
+                            Automatic / Not configured
+                        {/if}
+                    </strong>
                 </div>
-            </details>
+            </div>
+            <button
+                type="button"
+                class="ghost toggle-picker-btn"
+                onclick={() => (isPickingPrinter = !isPickingPrinter)}
+                disabled={snap.state === 'connecting'}
+            >
+                {isPickingPrinter ? 'Done' : 'Change model'}
+            </button>
         </div>
+
+        {#if isPickingPrinter}
+            <div class="picker-dropdown-panel">
+                <PrinterModelPicker
+                    selectedId={selectedPrinterModel}
+                    onselect={chooseModel}
+                />
+            </div>
+        {/if}
+
+        <details class="advanced-protocol">
+            <summary>Advanced: protocol override ({driverOverride || 'Automatic'})</summary>
+            <div class="protocol-content">
+                <label>
+                    <span>Force driver family:</span>
+                    <select bind:value={driverOverride} disabled={snap.state === 'connecting'}>
+                        <option value="">Automatic (Auto-detect by device name)</option>
+                        {#each driverChoices as driver (driver.name)}
+                            <option value={driver.name}>{driver.name}</option>
+                        {/each}
+                    </select>
+                </label>
+                <small class="desc">Only change if your printer is an unbranded rebadge that needs a specific driver.</small>
+            </div>
+        </details>
 
         <div class="options">
             {#each sortedTransports as option (option.id)}
@@ -336,36 +354,67 @@
         flex-direction: column;
         gap: 10px;
     }
-    .printer-selector {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        padding: 10px 12px;
-        background: var(--panel);
-        border-radius: 3px;
-        border: 1px solid var(--border);
-    }
-    .printer-selector .row {
+    .printer-model-bar {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 12px;
+        padding: 10px 12px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 3px;
     }
-    .printer-label {
+    .model-summary {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+    }
+    .model-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--accent);
+        flex-shrink: 0;
+    }
+    .model-info {
         display: flex;
         flex-direction: column;
         gap: 2px;
+        min-width: 0;
     }
-    .printer-label small {
+    .model-label {
+        font-size: 11px;
         color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    .model-name {
+        font-size: 13px;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .toggle-picker-btn {
+        flex-shrink: 0;
         font-size: 12px;
+        padding: 4px 10px;
+    }
+    .picker-dropdown-panel {
+        padding: 12px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        max-height: 380px;
+        overflow-y: auto;
     }
     .advanced-protocol summary {
         font-size: 11px;
         color: var(--muted);
         cursor: pointer;
-        margin-top: 4px;
         user-select: none;
+        padding: 2px 4px;
     }
     .advanced-protocol summary:hover {
         color: var(--text);
@@ -597,7 +646,7 @@
     @media (max-width: 520px) {
         .option .row,
         .connected,
-        .printer-selector .row {
+        .printer-model-bar {
             align-items: flex-start;
             flex-wrap: wrap;
         }
