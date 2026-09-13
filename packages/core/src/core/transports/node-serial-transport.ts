@@ -21,7 +21,12 @@ export class NodeSerialTransport extends EventEmitter<TransportEventMap> impleme
 
     constructor(private readonly options: NodeSerialTransportOptions = {}) {
         super();
-        this.resolvedName = options.deviceName ?? "NIIMBOT Serial Printer";
+        // A serial port is not a NIIMBOT; a protocol-specific name here would
+        // satisfy NiimbotDriver's `name.includes("niimbot")` check and silently
+        // route any serial-connected printer (L13 over SPP, PeriPage, ...) to
+        // the wrong driver. A neutral default matches no driver, so detection
+        // surfaces a manual-selection prompt instead of a wrong protocol.
+        this.resolvedName = options.deviceName ?? "Serial Printer";
     }
 
     async connect(filters: BluetoothLEScanFilter[] = []): Promise<void> {
