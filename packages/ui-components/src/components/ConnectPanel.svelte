@@ -19,7 +19,7 @@
     import PrinterStatusView from './PrinterStatusView.svelte';
     import Icon from './Icon.svelte';
     import { artworkForDevice } from '../data/artwork';
-    import { toPrinterError } from 'universal-label-core';
+    import { toPrinterError, type DeviceDiagnostic, type IDeviceTransport } from 'universal-label-core';
     import { errorText, canRetry } from '../printer/messages';
     import { globalSettings as settings, PRINTER_PROFILES } from '../stores/settings.svelte';
     import PrinterModelPicker from './PrinterModelPicker.svelte';
@@ -45,6 +45,12 @@
     let refreshing = $state(false);
     let busyId = $state<string | null>(null);
     let lastTransportId = $state<string | null>(null);
+
+    let diagnosticResult = $state<DeviceDiagnostic | null>(null);
+    let diagnosticTransport = $state<IDeviceTransport | null>(null);
+    let isDiagnosing = $state(false);
+    let copiedReport = $state(false);
+    let copyTimer: any = null;
 
     let isPickingPrinter = $state(false);
     const platform: PlatformInfo = detectPlatform();
@@ -89,10 +95,91 @@
         });
     });
 
+    async function copyReport(): Promise<void> {
+        if (!diagnosticResult) return;
+        try {
+            await navigator.clipboard.writeText(diagnosticResult.markdownReport);
+            copiedReport = true;
+            if (copyTimer) clearTimeout(copyTimer);
+            copyTimer = setTimeout(() => {
+                copiedReport = false;
+            }, 2500);
+        } catch (e) {
+            console.warn('Failed to copy diagnostic report:', e);
+        }
+    }
+
+    async function closeDiagnostics(): Promise<void> {
+        if (diagnosticTransport && diagnosticTransport.isConnected()) {
+            try {
+                await diagnosticTransport.disconnect();
+            } catch (e) {
+                console.warn('Error disconnecting diagnostic transport:', e);
+            }
+        }
+        diagnosticTransport = null;
+        diagnosticResult = null;
+    }
+
+    async function tryDriverWithDiagnostic(driverName: string): Promise<void> {
+        if (!diagnosticTransport) return;
+        connectError = '';
+        busyId = 'diagnostic-connect';
+        try {
+            const transport = diagnosticTransport;
+            diagnosticResult = null;
+            diagnosticTransport = null;
+            await session.connectWithTransport(transport, driverName, selectedPrinterModel || undefined);
+        } catch (err) {
+            const e = toPrinterError(err);
+            connectError = errorText(e);
+        } finally {
+            busyId = null;
+        }
+    }
+
+    async function runDiagnostics(option?: TransportOption): Promise<void> {
+        const targetOption = option ?? transports.find(t => t.id === lastTransportId) ?? transports[0];
+        if (!targetOption) return;
+        connectError = '';
+        isDiagnosing = true;
+        busyId = 'diagnose';
+        try {
+            const transport = targetOption.create();
+            const result = await session.diagnose(transport);
+            diagnosticTransport = transport;
+            diagnosticResult = result;
+        } catch (err) {
+            const e = toPrinterError(err);
+            connectError = e.code === 'cancelled' ? '' : errorText(e);
+        } finally {
+            isDiagnosing = false;
+            busyId = null;
+        }
+    }
+
     async function connect(option: TransportOption): Promise<void> {
         connectError = '';
         busyId = option.id;
         lastTransportId = option.id;
+
+        if (selectedPrinterModel === 'unknown') {
+            isDiagnosing = true;
+            try {
+                const transport = option.create();
+                const result = await session.diagnose(transport);
+                diagnosticTransport = transport;
+                diagnosticResult = result;
+            } catch (err) {
+                const e = toPrinterError(err);
+                connectError = e.code === 'cancelled' ? '' : errorText(e);
+            } finally {
+                isDiagnosing = false;
+                busyId = null;
+            }
+            return;
+        }
+
         try {
             await session.connect(
                 option.create(),
@@ -159,6 +246,8 @@
                         <strong class="model-name">
                             {#if currentModelProfile}
                                 {currentModelProfile.rebadgeOnly ? `${currentModelProfile.brand}-compatible` : currentModelProfile.brand} {currentModelProfile.model}
+                            {:else if selectedPrinterModel === 'unknown'}
+                                Unknown / Not in list (Diagnostic mode)
                             {:else}
                                 Automatic / Not configured
                             {/if}
@@ -169,7 +258,7 @@
                     type="button"
                     class="ghost toggle-picker-btn"
                     onclick={() => (isPickingPrinter = !isPickingPrinter)}
-                    disabled={snap.state === 'connecting'}
+                    disabled={snap.state === 'connecting' || isDiagnosing}
                 >
                     {isPickingPrinter ? 'Done' : 'Change model'}
                 </button>
@@ -185,12 +274,108 @@
             {/if}
         {/if}
 
+        {#if diagnosticResult}
+            <div class="diagnostic-panel">
+                <div class="diagnostic-header">
+                    <div class="diagnostic-title">
+                        <span class="diagnostic-icon"><Icon name="info" size={18} /></span>
+                        <strong>Hardware Diagnostic Findings</strong>
+                    </div>
+                    <button type="button" class="ghost close-btn" onclick={closeDiagnostics}>Close</button>
+                </div>
+
+                <div class="diagnostic-facts">
+                    <div class="fact-item">
+                        <span class="fact-label">Advertised name:</span>
+                        <code class="fact-value">{diagnosticResult.deviceName || 'Unknown / Unreported'}</code>
+                    </div>
+                    <div class="fact-item">
+                        <span class="fact-label">Transport type:</span>
+                        <span class="fact-value">{diagnosticResult.transportType}</span>
+                    </div>
+                    <div class="fact-item">
+                        <span class="fact-label">Primary services:</span>
+                        {#if diagnosticResult.discoveredServices.length > 0}
+                            <div class="service-list">
+                                {#each diagnosticResult.discoveredServices as s}
+                                    <code>{s}</code>
+                                {/each}
+                            </div>
+                        {:else}
+                            <span class="fact-value muted">None discovered or not accessible</span>
+                        {/if}
+                    </div>
+                </div>
+
+                <!-- Clues / Candidate Drivers -->
+                <div class="diagnostic-section">
+                    <span class="section-title">Driver Clues &amp; Recommendations</span>
+                    {#if diagnosticResult.candidates.length > 0}
+                        <div class="candidates-list">
+                            {#each diagnosticResult.candidates as candidate}
+                                <div class="candidate-card">
+                                    <div class="candidate-info">
+                                        <div class="candidate-title-line">
+                                            <strong class="candidate-name">{candidate.driverName}</strong>
+                                            <span class="candidate-match">matched by: {candidate.matchedBy}</span>
+                                        </div>
+                                        <ul class="candidate-reasons">
+                                            {#each candidate.reasons as reason}
+                                                <li>{reason}</li>
+                                            {/each}
+                                        </ul>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        class="primary try-driver-btn"
+                                        onclick={() => tryDriverWithDiagnostic(candidate.driverName)}
+                                        disabled={busyId !== null}
+                                    >
+                                        {busyId === 'diagnostic-connect' ? 'Connecting…' : `Try ${candidate.driverName}`}
+                                    </button>
+                                </div>
+                            {/each}
+                        </div>
+                    {:else}
+                        <p class="no-candidates">
+                            No standard driver matched the advertised name or service UUIDs directly.
+                            You can force a driver family using the protocol override below.
+                        </p>
+                    {/if}
+                </div>
+
+                <!-- Escalate to Developers -->
+                <div class="diagnostic-section">
+                    <span class="section-title">Escalate to OpenTLP Developers</span>
+                    <p class="escalate-desc">
+                        If your printer isn't working, copy this diagnostic report or open an issue on GitHub so we can add support for your hardware:
+                    </p>
+                    <pre class="report-box"><code>{diagnosticResult.markdownReport}</code></pre>
+                    <div class="escalate-actions">
+                        <button type="button" class="ghost action-btn" onclick={copyReport}>
+                            <Icon name="copy" size={15} />
+                            <span>{copiedReport ? 'Copied to clipboard!' : 'Copy Diagnostic Report'}</span>
+                        </button>
+                        <a
+                            href="https://github.com/opentlp/opentlp/issues/new?title={encodeURIComponent(`Hardware support request: ${diagnosticResult.deviceName || 'Unknown device'}`)}&body={encodeURIComponent(diagnosticResult.markdownReport)}"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="ghost action-btn action-link"
+                        >
+                            <Icon name="external-link" size={15} />
+                            <span>Report to Devs on GitHub</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {/if}
+
         <details class="advanced-protocol">
             <summary>Advanced: protocol override ({driverOverride || 'Automatic'})</summary>
             <div class="protocol-content">
                 <label>
                     <span>Force driver family:</span>
-                    <select bind:value={driverOverride} disabled={snap.state === 'connecting'}>
+                    <select bind:value={driverOverride} disabled={snap.state === 'connecting' || isDiagnosing}>
                         <option value="">Automatic (Auto-detect by device name)</option>
                         {#each driverChoices as driver (driver.name)}
                             <option value={driver.name}>{driver.name}</option>
@@ -249,14 +434,20 @@
                             <button
                                 class="primary"
                                 class:discouraged-btn={isDiscouraged}
-                                disabled={!option.available || snap.state === 'connecting'}
+                                disabled={!option.available || snap.state === 'connecting' || isDiagnosing}
                                 onclick={() => connect(option)}
                             >
-                                {busyId === option.id && snap.state === 'connecting'
-                                    ? 'Connecting…'
-                                    : isDiscouraged
-                                    ? 'Connect anyway'
-                                    : 'Connect'}
+                                {#if busyId === option.id && isDiagnosing}
+                                    Probing device…
+                                {:else if busyId === option.id && snap.state === 'connecting'}
+                                    Connecting…
+                                {:else if selectedPrinterModel === 'unknown'}
+                                    Probe &amp; Diagnose
+                                {:else if isDiscouraged}
+                                    Connect anyway
+                                {:else}
+                                    Connect
+                                {/if}
                             </button>
                         {/if}
                     </div>
@@ -358,15 +549,18 @@
 
     {#if connectError || snap.lastError}
         <div class="error">
-            <span>{connectError || (snap.lastError ? errorText(snap.lastError) : '')}</span>
-            {#if snap.lastError && canRetry(snap.lastError) && snap.state === 'disconnected'}
-                <!-- Offered from the error's own `retryable`, so a retry never
-                     appears on something retrying cannot fix. -->
-                <button class="ghost" onclick={() => {
-                    const last = transports.find(t => t.id === lastTransportId);
-                    connect(last ?? transports[0]);
-                }}>Try again</button>
-            {/if}
+            <span class="error-msg">{connectError || (snap.lastError ? errorText(snap.lastError) : '')}</span>
+            <div class="error-actions">
+                {#if snap.lastError && canRetry(snap.lastError) && snap.state === 'disconnected'}
+                    <!-- Offered from the error's own `retryable`, so a retry never
+                         appears on something retrying cannot fix. -->
+                    <button class="ghost" onclick={() => {
+                        const last = transports.find(t => t.id === lastTransportId);
+                        connect(last ?? transports[0]);
+                    }}>Try again</button>
+                {/if}
+                <button class="ghost" onclick={() => runDiagnostics()}>Run diagnostics</button>
+            </div>
         </div>
     {/if}
 </div>
@@ -671,6 +865,177 @@
         padding: 6px 10px;
         background: var(--panel);
         border-radius: 2px;
+    }
+    .diagnostic-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 14px;
+        background: var(--panel-2);
+        border: 1px solid var(--accent);
+        border-radius: 4px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    }
+    .diagnostic-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 8px;
+    }
+    .diagnostic-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--text);
+        font-size: 14px;
+    }
+    .diagnostic-icon {
+        display: inline-flex;
+        color: var(--accent);
+    }
+    .close-btn {
+        padding: 2px 8px;
+        font-size: 11px;
+    }
+    .diagnostic-facts {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 12px;
+    }
+    .fact-item {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .fact-label {
+        color: var(--muted);
+        min-width: 120px;
+        font-weight: 500;
+    }
+    .fact-value {
+        color: var(--text);
+    }
+    .service-list {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .diagnostic-section {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        border-top: 1px solid var(--border);
+        padding-top: 10px;
+    }
+    .section-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    .candidates-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .candidate-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 8px 10px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 2px;
+    }
+    .candidate-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+    }
+    .candidate-title-line {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .candidate-name {
+        font-size: 13px;
+        color: var(--text);
+    }
+    .candidate-match {
+        font-size: 11px;
+        color: var(--accent);
+        font-weight: 500;
+    }
+    .candidate-reasons {
+        margin: 0;
+        padding-left: 16px;
+        font-size: 11px;
+        color: var(--muted);
+    }
+    .try-driver-btn {
+        flex-shrink: 0;
+        font-size: 12px;
+        padding: 5px 12px;
+    }
+    .no-candidates {
+        font-size: 12px;
+        color: var(--muted);
+        margin: 0;
+    }
+    .escalate-desc {
+        font-size: 12px;
+        color: var(--muted);
+        margin: 0;
+    }
+    .report-box {
+        margin: 0;
+        padding: 8px 10px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 2px;
+        font-size: 11px;
+        line-height: 1.4;
+        max-height: 140px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    .escalate-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .action-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        padding: 5px 10px;
+    }
+    .action-link {
+        text-decoration: none;
+        color: var(--accent);
+    }
+    .action-link:hover {
+        text-decoration: underline;
+    }
+    .error-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+    }
+    .error-msg {
+        flex: 1;
+        min-width: 0;
     }
     .actions {
         display: flex;

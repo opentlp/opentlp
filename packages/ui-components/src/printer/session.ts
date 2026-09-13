@@ -18,6 +18,7 @@ import {
     type LoadedMedia,
     type StatusField,
     type PrinterDriverChoice,
+    type DeviceDiagnostic,
     PrinterError,
     toPrinterError,
     printBlocker
@@ -121,6 +122,34 @@ export class PrinterSession {
             // `lastError` would leave a red message on screen after the user
             // simply changed their mind.
             this.update({ state: 'disconnected', lastError: e.code === 'cancelled' ? undefined : e });
+            throw e;
+        }
+        void this.refreshStatus();
+    }
+
+    /**
+     * Runs a hardware diagnostic probe against the given transport without
+     * attempting a full print bind. Discovers GATT primary services, compares
+     * device name patterns, and returns candidate driver recommendations.
+     */
+    async diagnose(transport: IDeviceTransport): Promise<DeviceDiagnostic> {
+        return this.pm.diagnoseDevice(transport);
+    }
+
+    /**
+     * Connect using an already-established transport link (e.g. after running
+     * a diagnostic probe or when the user chooses a candidate driver).
+     */
+    async connectWithTransport(transport: IDeviceTransport, driverName?: string, modelId?: string): Promise<void> {
+        if (this.snapshot.state === 'connecting' || this.snapshot.state === 'printing') {
+            throw new PrinterError('not-connected', `Cannot connect while ${this.snapshot.state}.`);
+        }
+        this.update({ state: 'connecting', lastError: undefined });
+        try {
+            await this.pm.connectWithTransport(transport, driverName, modelId);
+        } catch (err) {
+            const e = toPrinterError(err, 'transport');
+            this.update({ state: 'disconnected', lastError: e });
             throw e;
         }
         void this.refreshStatus();

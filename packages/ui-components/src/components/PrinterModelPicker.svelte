@@ -20,6 +20,7 @@
     let searchQuery = $state('');
 
     const isNone = $derived(!selectedId || selectedId === 'none');
+    const isUnknown = $derived(selectedId === 'unknown');
 
     const profileEntries = $derived.by(() => {
         const seen = new Set<string>();
@@ -54,6 +55,14 @@
         const tokens = q.split(/\s+/).filter(Boolean);
         const noneText = 'none raw continuous generic fallback default';
         return tokens.every((token) => noneText.includes(token));
+    });
+
+    const showUnknown = $derived.by(() => {
+        const q = searchQuery.trim().toLowerCase();
+        if (!q) return true;
+        const tokens = q.split(/\s+/).filter(Boolean);
+        const unknownText = 'unknown not in list unlisted other mystery diagnose diagnostic probe clues report';
+        return tokens.every((token) => unknownText.includes(token));
     });
 </script>
 
@@ -94,7 +103,7 @@
         </div>
     </div>
 
-    {#if !showNone && filteredProfiles.length === 0}
+    {#if !showNone && !showUnknown && filteredProfiles.length === 0}
         <div class="empty-state">
             <span class="empty-icon"><Icon name="search" size={28} /></span>
             <p class="empty-title">No matching printer models</p>
@@ -111,8 +120,8 @@
                 <button
                     type="button"
                     class="printer-card"
-                    class:on={isNone}
-                    aria-pressed={isNone}
+                    class:on={isNone && !isUnknown}
+                    aria-pressed={isNone && !isUnknown}
                     aria-label="None (Raw continuous data)"
                     onclick={() => onselect('none')}
                 >
@@ -121,10 +130,24 @@
                     <strong class="card-model">None</strong>
                 </button>
             {/if}
+            {#if showUnknown}
+                <button
+                    type="button"
+                    class="printer-card diagnostic-card"
+                    class:on={isUnknown}
+                    aria-pressed={isUnknown}
+                    aria-label="Unknown / Not in list (Hardware diagnostic probe)"
+                    onclick={() => onselect('unknown')}
+                >
+                    <span class="card-icon"><Icon name="info" size={36} /></span>
+                    <span class="card-name">Diagnostic mode</span>
+                    <strong class="card-model">Unknown / Not in list</strong>
+                </button>
+            {/if}
             {#each filteredProfiles as { profile: p, opentlp } (p.id)}
                 {@const art = artworkFor(p)}
                 {@const brandLabel = p.rebadgeOnly ? `${p.brand}-compatible` : p.brand}
-                {@const isSelected = !isNone && selectedId === p.id}
+                {@const isSelected = !isNone && !isUnknown && selectedId === p.id}
                 <button
                     type="button"
                     class="printer-card"

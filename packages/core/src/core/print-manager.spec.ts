@@ -260,4 +260,46 @@ describe('PrintManager', () => {
         const boundDriver = connectedEvent.mock.calls[0][0];
         expect(boundDriver.name).toBe('Marklife-Legacy-L11');
     });
+
+    it('throws ambiguous driver error when P12 connects without a model preference', async () => {
+        const transport = new FastMockTransport('P12_B123', ['0000ff00-0000-1000-8000-00805f9b34fb']);
+        await expect(printManager.connect(transport)).rejects.toThrow(/match multiple drivers/i);
+    });
+
+    it('disambiguates P12 to Marklife-Protocol-0x1F when marklife_p12 model is selected', async () => {
+        const transport = new FastMockTransport('P12_B123', ['0000ff00-0000-1000-8000-00805f9b34fb']);
+        const connectedEvent = vi.fn();
+        printManager.on('connected', connectedEvent);
+
+        await printManager.connect(transport, undefined, 'marklife_p12');
+        expect(connectedEvent).toHaveBeenCalled();
+        const boundDriver = connectedEvent.mock.calls[0][0];
+        expect(boundDriver.name).toBe('Marklife-Protocol-0x1F');
+    });
+
+    it('disambiguates P12 to Phomemo P12/A30 when phomemo_p12 model is selected', async () => {
+        const transport = new FastMockTransport('P12_B123', ['0000ff00-0000-1000-8000-00805f9b34fb']);
+        const connectedEvent = vi.fn();
+        printManager.on('connected', connectedEvent);
+
+        await printManager.connect(transport, undefined, 'phomemo_p12');
+        expect(connectedEvent).toHaveBeenCalled();
+        const boundDriver = connectedEvent.mock.calls[0][0];
+        expect(boundDriver.name).toBe('Phomemo P12/A30');
+    });
+
+    it('diagnoses connected device, detects candidate drivers and builds report', async () => {
+        const transport = new FastMockTransport('P12_B123', ['0000ff00-0000-1000-8000-00805f9b34fb']);
+        const diagnostic = await printManager.diagnoseDevice(transport);
+
+        expect(diagnostic.deviceName).toBe('P12_B123');
+        expect(diagnostic.transportType).toBe('Mock');
+        expect(diagnostic.discoveredServices).toContain('0000ff00-0000-1000-8000-00805f9b34fb');
+
+        const candidateNames = diagnostic.candidates.map(c => c.driverName);
+        expect(candidateNames).toContain('Marklife-Protocol-0x1F');
+        expect(candidateNames).toContain('Phomemo P12/A30');
+        expect(diagnostic.markdownReport).toContain('OpenTLP Hardware Diagnostic Report');
+        expect(diagnostic.markdownReport).toContain('P12_B123');
+    });
 });

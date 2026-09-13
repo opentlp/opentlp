@@ -42,6 +42,22 @@ export interface PrinterDriverChoice {
     modelCount: number;
 }
 
+export interface CandidateDriverInfo {
+    driverName: string;
+    matchedBy: 'name' | 'service' | 'both' | 'prefix-hint';
+    reasons: string[];
+    supportedModels: PrinterModelProfile[];
+}
+
+export interface DeviceDiagnostic {
+    deviceName?: string;
+    transportType: string;
+    discoveredServices: string[];
+    candidates: CandidateDriverInfo[];
+    suggestedDriver?: string;
+    markdownReport: string;
+}
+
 /**
  * PrintManager acts as the central spooler orchestrating Transports and Drivers.
  * UI integrations will interface primarily with this class.
@@ -267,13 +283,15 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
             }
         }
 
-        let matchedDriver = chooseDriver(nameMatches, serviceMatches, deviceName);
+        const modelDriver = (modelId && modelId !== 'none' && modelId !== 'unknown')
+            ? this.getDriverForModel(modelId)
+            : undefined;
 
-        if (!matchedDriver && modelId) {
-            matchedDriver = this.getDriverForModel(modelId);
-            if (matchedDriver) {
-                this.logger('info', `[PrintManager] Device name/services inconclusive, matched driver by modelId '${modelId}': ${matchedDriver.name}`);
-            }
+        let matchedDriver = chooseDriver(nameMatches, serviceMatches, deviceName, modelDriver);
+
+        if (!matchedDriver && modelDriver) {
+            matchedDriver = modelDriver;
+            this.logger('info', `[PrintManager] Device name/services inconclusive, matched driver by modelId '${modelId}': ${matchedDriver.name}`);
         }
 
         if (!matchedDriver) {
@@ -371,6 +389,130 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
         return this.activeDriver.resolveMedia?.(media) ?? media;
     }
 
+    /**
+     * Probes an unknown or ambiguous connected device to discover its advertised
+     * name, transport type, and GATT primary service UUIDs. Compares observations
+     * against registered printer drivers, ranks candidates, and builds a preformatted
+     * diagnostic report ready for developer escalation.
+     */
+    public async diagnoseDevice(transport: IDeviceTransport): Promise<DeviceDiagnostic> {
+        if (!transport.isConnected()) {
+            const allServices = new Set<string>();
+            for (const driver of this.registeredDrivers) {
+                for (const service of driver.connectionRequirements.services) {
+                    allServices.add(service);
+                }
+            }
+            await transport.connect(
+                transport.filterType === 'usb' ? undefined : [{ services: Array.from(allServices) }]
+            );
+        }
+
+        const deviceName = transport.getDeviceName();
+        const transportType = transport.type;
+        let discoveredServices: string[] = [];
+        if (transport.getPrimaryServices) {
+            try {
+                discoveredServices = await transport.getPrimaryServices();
+            } catch (e) {
+                this.logger('warn', `[PrintManager] Failed to discover services during diagnosis: ${e}`);
+            }
+        }
+
+        const normDiscovered = new Set(discoveredServices.map(normalizeUuid));
+        const candidates: CandidateDriverInfo[] = [];
+        const hardwareDrivers = this.registeredDrivers.filter(d => d.driverType === 'hardware');
+
+        for (const driver of hardwareDrivers) {
+            const reasons: string[] = [];
+            let nameMatched = false;
+            let serviceMatched = false;
+
+            if (deviceName && driver.isCompatible(deviceName)) {
+                nameMatched = true;
+                reasons.push(`Device name "${deviceName}" matches driver pattern`);
+            }
+
+            const matchedServices = driver.connectionRequirements.services.filter(s =>
+                normDiscovered.has(normalizeUuid(s))
+            );
+            if (matchedServices.length > 0) {
+                serviceMatched = true;
+                reasons.push(`Advertises service UUID (${matchedServices.join(', ')})`);
+            }
+
+            let prefixHint = false;
+            if (!nameMatched && deviceName && driver.connectionRequirements.namePrefixes) {
+                const upperName = deviceName.toUpperCase();
+                for (const p of driver.connectionRequirements.namePrefixes) {
+                    if (upperName.includes(p.toUpperCase()) || p.toUpperCase().includes(upperName)) {
+                        prefixHint = true;
+                        reasons.push(`Device name contains prefix clue "${p}"`);
+                        break;
+                    }
+                }
+            }
+
+            if (nameMatched || serviceMatched || prefixHint) {
+                const matchedBy = (nameMatched && serviceMatched)
+                    ? 'both'
+                    : nameMatched
+                    ? 'name'
+                    : serviceMatched
+                    ? 'service'
+                    : 'prefix-hint';
+                candidates.push({
+                    driverName: driver.name,
+                    matchedBy,
+                    reasons,
+                    supportedModels: driver.supportedModels || []
+                });
+            }
+        }
+
+        const rank = (c: CandidateDriverInfo) => {
+            if (c.matchedBy === 'both') return 3;
+            if (c.matchedBy === 'name') return 2;
+            if (c.matchedBy === 'service') return 1;
+            return 0;
+        };
+        candidates.sort((a, b) => rank(b) - rank(a));
+
+        const suggestedDriver = candidates.length > 0 ? candidates[0].driverName : undefined;
+
+        const reportLines: string[] = [
+            '### OpenTLP Hardware Diagnostic Report',
+            '',
+            `- **Device Name**: \`${deviceName || 'Unknown / Unreported'}\``,
+            `- **Transport**: \`${transportType}\``,
+            `- **Discovered Services**: ${discoveredServices.length > 0 ? discoveredServices.map(s => `\`${s}\``).join(', ') : 'None reported / Not available'}`,
+            '',
+            '#### Candidate Drivers',
+        ];
+
+        if (candidates.length === 0) {
+            reportLines.push('- No standard driver matched by advertised name or primary services.');
+        } else {
+            for (const c of candidates) {
+                reportLines.push(`- **${c.driverName}** (matched by: ${c.matchedBy})`);
+                for (const r of c.reasons) {
+                    reportLines.push(`  - ${r}`);
+                }
+            }
+        }
+
+        const markdownReport = reportLines.join('\n');
+
+        return {
+            deviceName,
+            transportType,
+            discoveredServices,
+            candidates,
+            suggestedDriver,
+            markdownReport
+        };
+    }
+
 
     /**
      * Commences a print job, handing the page over to the matched driver.
@@ -450,26 +592,51 @@ function normalizeUuid(uuid: string): string {
  * Their intersection is strong; either signal on its own is accepted only when
  * it names exactly one driver. Registration order must never decide which wire
  * protocol receives a print job.
+ *
+ * When an explicit `modelDriver` is provided (e.g. user selected their printer model),
+ * it serves as the tiebreaker when multiple drivers match an ambiguous name or service.
  */
 function chooseDriver(
     nameMatches: IPrinterDriver[],
     serviceMatches: IPrinterDriver[],
-    deviceName?: string
+    deviceName?: string,
+    modelDriver?: IPrinterDriver
 ): IPrinterDriver | undefined {
     if (nameMatches.length && serviceMatches.length) {
         const services = new Set(serviceMatches);
         const intersection = nameMatches.filter(driver => services.has(driver));
         if (intersection.length === 1) return intersection[0];
-        if (intersection.length > 1) throw ambiguousDriverError(deviceName, intersection);
+        if (intersection.length > 1) {
+            if (modelDriver && intersection.includes(modelDriver)) {
+                return modelDriver;
+            }
+            throw ambiguousDriverError(deviceName, intersection);
+        }
         // A readable, specific name is more useful than a generic service list
         // which may include only the services the platform allowed us to see.
         if (nameMatches.length === 1) return nameMatches[0];
+        if (modelDriver && nameMatches.includes(modelDriver)) {
+            return modelDriver;
+        }
         throw ambiguousDriverError(deviceName, nameMatches);
     }
     if (nameMatches.length === 1) return nameMatches[0];
-    if (nameMatches.length > 1) throw ambiguousDriverError(deviceName, nameMatches);
+    if (nameMatches.length > 1) {
+        if (modelDriver && nameMatches.includes(modelDriver)) {
+            return modelDriver;
+        }
+        throw ambiguousDriverError(deviceName, nameMatches);
+    }
     if (serviceMatches.length === 1) return serviceMatches[0];
-    if (serviceMatches.length > 1) throw ambiguousDriverError(deviceName, serviceMatches);
+    if (serviceMatches.length > 1) {
+        if (modelDriver && serviceMatches.includes(modelDriver)) {
+            return modelDriver;
+        }
+        throw ambiguousDriverError(deviceName, serviceMatches);
+    }
+    if (modelDriver) {
+        return modelDriver;
+    }
     return undefined;
 }
 
