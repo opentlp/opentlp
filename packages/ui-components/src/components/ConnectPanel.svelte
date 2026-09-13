@@ -1,8 +1,16 @@
 <script lang="ts">
     /**
-     * Printer connection UI. Transport options come from the app shell; the
-     * connect buttons run inside the click handler so Web Bluetooth / WebUSB
-     * get the user gesture they require for their device chooser.
+     * Printer connection UI.
+     *
+     * Users think in terms of:
+     * 1. Which printer they have (or Automatic).
+     * 2. Wireless (Bluetooth) vs Wired (USB).
+     *
+     * Transports are visually classified into:
+     * - (Recommended): highlighted, primary choice for that platform.
+     * - Alternative: requires extra manual steps (e.g. OS Bluetooth pairing).
+     * - Discouraged: known broken on the platform (e.g. Web Bluetooth on Linux),
+     *   greyed out, with an explicit warning and a "Proceed anyway" prompt.
      */
     import { fromStore } from 'svelte/store';
     import { PrinterSession, DUMMY_PROFILES } from '../printer/session';
@@ -13,6 +21,13 @@
     import { artworkForDevice } from '../data/artwork';
     import { toPrinterError } from 'universal-label-core';
     import { errorText, canRetry } from '../printer/messages';
+    import { globalSettings as settings, PRINTER_PROFILES } from '../stores/settings.svelte';
+    import {
+        detectPlatform,
+        getTransportGuidance,
+        type GuidanceTier,
+        type PlatformInfo
+    } from '../printer/connection-guide';
 
     interface Props {
         session: PrinterSession;
@@ -28,6 +43,32 @@
     let refreshing = $state(false);
     let busyId = $state<string | null>(null);
     let lastTransportId = $state<string | null>(null);
+
+    let selectedPrinterModel = $state(settings.defaultPrinter || '');
+    const platform: PlatformInfo = detectPlatform();
+    let allowedAnyway = $state<Record<string, boolean>>({});
+
+    function onPrinterChange(e: Event): void {
+        const id = (e.currentTarget as HTMLSelectElement).value;
+        selectedPrinterModel = id;
+        settings.defaultPrinter = id;
+        settings.save();
+    }
+
+    const sortedTransports = $derived.by(() => {
+        const tierRank: Record<GuidanceTier, number> = {
+            recommended: 0,
+            alternative: 1,
+            discouraged: 2
+        };
+        return [...transports].sort((a, b) => {
+            const guideA = getTransportGuidance(a.id, platform, selectedPrinterModel);
+            const guideB = getTransportGuidance(b.id, platform, selectedPrinterModel);
+            const rankDiff = tierRank[guideA.tier] - tierRank[guideB.tier];
+            if (rankDiff !== 0) return rankDiff;
+            return 0;
+        });
+    });
 
     async function connect(option: TransportOption): Promise<void> {
         connectError = '';
@@ -88,24 +129,62 @@
 
 <div class="panel">
     {#if snap.state === 'disconnected' || snap.state === 'connecting'}
-        <label class="driver-choice">
-            <span>
-                <strong>Printer protocol</strong>
-                <small>Use automatic detection unless your printer is an unknown rebrand.</small>
-            </span>
-            <select bind:value={driverOverride} disabled={snap.state === 'connecting'}>
-                <option value="">Automatic</option>
-                {#each driverChoices as driver (driver.name)}
-                    <option value={driver.name}>{driver.name}</option>
-                {/each}
-            </select>
-        </label>
+        <!-- Printer Model Selector & Guidance Anchor -->
+        <div class="printer-selector">
+            <div class="row">
+                <label class="printer-label" for="printer-model-select">
+                    <strong>Your printer</strong>
+                    <small>Tailors connection guidance and device names</small>
+                </label>
+                <select
+                    id="printer-model-select"
+                    value={selectedPrinterModel}
+                    onchange={onPrinterChange}
+                    disabled={snap.state === 'connecting'}
+                >
+                    <option value="">Automatic / Not sure</option>
+                    {#each PRINTER_PROFILES as p (p.id)}
+                        <option value={p.id}>
+                            {p.rebadgeOnly ? `${p.brand}-compatible` : p.brand} {p.model}
+                        </option>
+                    {/each}
+                </select>
+            </div>
+            <details class="advanced-protocol">
+                <summary>Protocol family override: {driverOverride || 'Automatic'}</summary>
+                <div class="protocol-content">
+                    <label>
+                        <span>Force driver family:</span>
+                        <select bind:value={driverOverride} disabled={snap.state === 'connecting'}>
+                            <option value="">Automatic (Auto-detect by name)</option>
+                            {#each driverChoices as driver (driver.name)}
+                                <option value={driver.name}>{driver.name}</option>
+                            {/each}
+                        </select>
+                    </label>
+                    <small class="desc">Only change if your printer is an unbranded rebadge that needs a specific driver.</small>
+                </div>
+            </details>
+        </div>
+
         <div class="options">
-            {#each transports as option (option.id)}
-                <div class="option" class:disabled={!option.available}>
+            {#each sortedTransports as option (option.id)}
+                {@const guidance = getTransportGuidance(option.id, platform, selectedPrinterModel)}
+                {@const isDiscouraged = guidance.tier === 'discouraged'}
+                {@const isUnlocked = !isDiscouraged || allowedAnyway[option.id]}
+                <div
+                    class="option"
+                    class:tier-recommended={guidance.tier === 'recommended'}
+                    class:tier-alternative={guidance.tier === 'alternative'}
+                    class:tier-discouraged={isDiscouraged}
+                    class:disabled={!option.available}
+                >
                     <div class="row">
                         <div class="text">
-                            <strong>{option.label}</strong>
+                            <div class="title-line">
+                                <strong>{option.label}</strong>
+                                <span class="badge badge-{guidance.tier}">{guidance.badge}</span>
+                            </div>
                             {#if option.description}<span class="desc">{option.description}</span>{/if}
                             {#if !option.available && option.unavailableReason}
                                 <span class="desc warn">{option.unavailableReason}</span>
@@ -123,14 +202,60 @@
                                 </label>
                             {/if}
                         </div>
-                        <button
-                            class="primary"
-                            disabled={!option.available || snap.state === 'connecting'}
-                            onclick={() => connect(option)}
-                        >
-                            {busyId === option.id && snap.state === 'connecting' ? 'Connecting…' : 'Connect'}
-                        </button>
+                        {#if isDiscouraged && !isUnlocked}
+                            <button
+                                type="button"
+                                class="warn-btn"
+                                onclick={() => (allowedAnyway[option.id] = true)}
+                                title="Not recommended on {platform.osName}"
+                            >
+                                Proceed anyway
+                            </button>
+                        {:else}
+                            <button
+                                class="primary"
+                                class:discouraged-btn={isDiscouraged}
+                                disabled={!option.available || snap.state === 'connecting'}
+                                onclick={() => connect(option)}
+                            >
+                                {busyId === option.id && snap.state === 'connecting'
+                                    ? 'Connecting…'
+                                    : isDiscouraged
+                                    ? 'Connect anyway'
+                                    : 'Connect'}
+                            </button>
+                        {/if}
                     </div>
+
+                    <!-- Prominent warnings (e.g. Do NOT pair in OS Bluetooth menu for Web Bluetooth) -->
+                    {#if guidance.warning}
+                        <div class="guidance-warning">
+                            <strong>Note:</strong> {guidance.warning}
+                        </div>
+                    {/if}
+
+                    <!-- Discouraged explanation banner -->
+                    {#if isDiscouraged && guidance.discouragedReason}
+                        <div class="guidance-discouraged-note">
+                            ⚠️ {guidance.discouragedReason}
+                        </div>
+                    {/if}
+
+                    <!-- Step-by-step instructions (e.g. for Bluetooth Serial / Classic) -->
+                    {#if guidance.steps && guidance.steps.length > 0}
+                        <div class="guidance-steps">
+                            <strong>Setup steps for {platform.osName}:</strong>
+                            <ol>
+                                {#each guidance.steps as step}
+                                    <li>{step}</li>
+                                {/each}
+                            </ol>
+                        </div>
+                    {:else if guidance.hints}
+                        <div class="guidance-hint">{guidance.hints}</div>
+                    {/if}
+
+                    <!-- One-time setup / driver help (e.g. Zadig for WebUSB on Windows) -->
                     {#if option.help}
                         <details class="setup-help">
                             <summary>{option.help.summary}</summary>
@@ -209,44 +334,177 @@
     .panel {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 10px;
     }
-    .options {
+    .printer-selector {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 6px;
+        padding: 10px 12px;
+        background: var(--panel);
+        border-radius: 3px;
+        border: 1px solid var(--border);
     }
-    .driver-choice {
+    .printer-selector .row {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-        padding: 10px;
-        background: var(--panel);
-        border-radius: 2px;
     }
-    .driver-choice span {
+    .printer-label {
         display: flex;
         flex-direction: column;
         gap: 2px;
     }
-    .driver-choice small {
+    .printer-label small {
         color: var(--muted);
         font-size: 12px;
+    }
+    .advanced-protocol summary {
+        font-size: 11px;
+        color: var(--muted);
+        cursor: pointer;
+        margin-top: 4px;
+        user-select: none;
+    }
+    .advanced-protocol summary:hover {
+        color: var(--text);
+    }
+    .protocol-content {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 6px;
+        padding: 8px 10px;
+        background: var(--panel-2);
+        border-radius: 2px;
+    }
+    .protocol-content label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 12px;
+    }
+    .options {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
     }
     .option {
         display: flex;
         flex-direction: column;
-        gap: 6px;
-        padding: 10px;
+        gap: 8px;
+        padding: 12px;
         background: var(--panel);
-        border-radius: 2px;
+        border-radius: 3px;
+        border: 1px solid var(--border);
+        transition: opacity 0.15s ease, border-color 0.15s ease;
+    }
+    .option.tier-recommended {
+        border-left: 3px solid var(--accent, #0f5c9c);
+    }
+    .option.tier-discouraged {
+        opacity: 0.65;
+        border-style: dashed;
+        background: color-mix(in srgb, var(--panel) 80%, transparent);
+    }
+    .option.tier-discouraged:hover,
+    .option.tier-discouraged:focus-within {
+        opacity: 0.95;
     }
     .option .row {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 12px;
+    }
+    .title-line {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .badge {
+        display: inline-block;
+        padding: 2px 6px;
+        font-size: 10px;
+        font-weight: 600;
+        border-radius: 2px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        line-height: 1.2;
+    }
+    .badge-recommended {
+        background: color-mix(in srgb, var(--accent, #0f5c9c) 14%, transparent);
+        color: var(--accent, #0f5c9c);
+        border: 1px solid color-mix(in srgb, var(--accent, #0f5c9c) 30%, transparent);
+    }
+    .badge-alternative {
+        background: var(--panel-2);
+        color: var(--muted);
+        border: 1px solid var(--border);
+    }
+    .badge-discouraged {
+        background: color-mix(in srgb, var(--warn, #b35900) 15%, transparent);
+        color: var(--warn, #b35900);
+        border: 1px solid color-mix(in srgb, var(--warn, #b35900) 35%, transparent);
+    }
+    .guidance-warning {
+        padding: 6px 10px;
+        font-size: 12px;
+        line-height: 1.4;
+        border-radius: 2px;
+        background: color-mix(in srgb, var(--warn, #e67e22) 12%, var(--panel));
+        border-left: 3px solid var(--warn, #e67e22);
+        color: var(--text);
+    }
+    .guidance-discouraged-note {
+        padding: 6px 10px;
+        font-size: 12px;
+        line-height: 1.4;
+        border-radius: 2px;
+        background: color-mix(in srgb, var(--danger, #e74c3c) 10%, var(--panel));
+        border-left: 3px solid var(--danger, #e74c3c);
+        color: var(--text);
+    }
+    .guidance-steps {
+        padding: 8px 10px;
+        font-size: 12px;
+        line-height: 1.45;
+        background: var(--panel-2);
+        border-radius: 2px;
+        border: 1px solid var(--border);
+        color: var(--text);
+    }
+    .guidance-steps ol {
+        margin: 6px 0 2px;
+        padding-left: 18px;
+    }
+    .guidance-steps li + li {
+        margin-top: 4px;
+    }
+    .guidance-hint {
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.4;
+    }
+    .warn-btn {
+        padding: 6px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: 2px;
+        background: transparent;
+        border: 1px solid var(--warn, #b35900);
+        color: var(--warn, #b35900);
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    .warn-btn:hover {
+        background: color-mix(in srgb, var(--warn, #b35900) 14%, transparent);
+    }
+    .discouraged-btn {
+        background: var(--muted) !important;
     }
     .connected {
         display: flex;
@@ -258,15 +516,14 @@
         border-radius: 2px;
     }
     .option.disabled {
-        opacity: 0.6;
+        opacity: 0.5;
     }
     .text {
         display: flex;
         flex-direction: column;
-        gap: 2px;
+        gap: 3px;
         min-width: 0;
     }
-    /* The drawing and the text are one unit; the button stays at the far end. */
     .connected .text {
         flex: 1;
     }
@@ -340,7 +597,7 @@
     @media (max-width: 520px) {
         .option .row,
         .connected,
-        .driver-choice {
+        .printer-selector .row {
             align-items: flex-start;
             flex-wrap: wrap;
         }
