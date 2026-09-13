@@ -185,7 +185,7 @@
                         {refreshing ? 'Reading…' : 'Refresh'}
                     </button>
                 {/if}
-                <button onclick={disconnect} disabled={snap.state === 'printing'}>Disconnect</button>
+                <button onclick={disconnect}>{snap.state === 'printing' ? 'Cancel / Disconnect' : 'Disconnect'}</button>
             </div>
         </div>
     {/if}

@@ -57,7 +57,8 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
     constructor(logger?: DiagnosticLogger) {
         super();
         this.logger = logger ?? (() => {});
-        this.registerDriver(new MarklifeDriver());
+        this.registerDriver(new MarklifeDriver('auto'));
+        this.registerDriver(new MarklifeDriver('legacy'));
         this.registerDriver(new NiimbotDriver());
         this.registerDriver(new CatPrinterDriver('standard'));
         this.registerDriver(new CatPrinterDriver('prefixed'));
@@ -257,10 +258,15 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
 
 
     async disconnect(): Promise<void> {
+        this.isPrinting = false;
         if (this.activeTransport) {
-            await this.activeTransport.disconnect();
+            try {
+                await this.activeTransport.disconnect();
+            } catch (e) {
+                this.logger('warn', `[PrintManager] Error during transport disconnect: ${e}`);
+            }
         }
-        this.handleDisconnect();
+        await this.handleDisconnect();
     }
 
     /**
@@ -360,6 +366,7 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
     }
 
     private handleDisconnect = async () => {
+        this.isPrinting = false;
         if (this.activeDriver) {
             try {
                 await this.activeDriver.unbindTransport();

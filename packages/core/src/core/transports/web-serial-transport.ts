@@ -74,11 +74,12 @@ export class WebSerialTransport extends EventEmitter<TransportEventMap> implemen
     async disconnect(): Promise<void> {
         this.reading = false;
         try { await this.reader?.cancel(); } catch { /* already closed */ }
-        this.reader?.releaseLock();
+        try { this.reader?.releaseLock(); } catch { /* already released */ }
         this.reader = null;
-        this.writer?.releaseLock();
+        try { await this.writer?.abort(); } catch { /* ignore */ }
+        try { this.writer?.releaseLock(); } catch { /* already released */ }
         this.writer = null;
-        await this.port?.close();
+        try { await this.port?.close(); } catch { /* already closed */ }
         this.port = null;
         this.emit("disconnected");
     }

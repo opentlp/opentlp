@@ -207,4 +207,84 @@ describe('MarklifeDriver', () => {
 
         expect(transport.write).toHaveBeenCalledTimes(4); // purge, stop, alternate stop, auto pos
     });
+
+    it('prints on Serial transport without waiting for flow-control credits', async () => {
+        class MockSerialTransport extends EventEmitter<TransportEventMap> implements IDeviceTransport {
+            type = "Serial-WebSerial";
+            filterType = "none" as const;
+            public writes: Uint8Array[] = [];
+            isConnected() { return true; }
+            getDeviceName() { return "Serial Printer"; }
+            async connect() {}
+            async disconnect() {}
+            async startNotifications() {} // starts reading, but yields no credit packets
+            async write(data: Uint8Array) {
+                this.writes.push(new Uint8Array(data));
+            }
+        }
+
+        const serialTransport = new MockSerialTransport();
+        const legacyDriver = new MarklifeDriver('legacy');
+        await legacyDriver.bindTransport(serialTransport);
+
+        expect(legacyDriver.getCapabilities().driverName).toBe('Marklife (Legacy L11)');
+
+        await legacyDriver.printInit({
+            paper: { id: 'continuous', name: 'Continuous', type: 'continuous', tapeWidthMm: 15 },
+            density: 8,
+            copies: 1
+        });
+
+        const image = { data: new Uint8Array(2 * 96 * 4).fill(255), width: 2, height: 96 };
+        // Should resolve cleanly without hanging for credits
+        await legacyDriver.printPage(monoPage(image));
+
+        expect(serialTransport.writes.length).toBeGreaterThan(0);
+        // Verify legacy framing was assembled
+        const job = serialTransport.writes[serialTransport.writes.length - 1];
+        expect([...job.slice(15, 19)]).toEqual([0x10, 0xff, 0xf1, 0x02]);
+    });
+
+    it('automatically detects DP-L13 via model probe on generic serial', async () => {
+        class ProbingSerialTransport extends EventEmitter<TransportEventMap> implements IDeviceTransport {
+            type = "Serial-WebSerial";
+            filterType = "none" as const;
+            public writes: Uint8Array[] = [];
+            isConnected() { return true; }
+            getDeviceName() { return "Serial Printer"; }
+            async connect() {}
+            async disconnect() {}
+            async startNotifications() {}
+            async write(data: Uint8Array) {
+                this.writes.push(new Uint8Array(data));
+                // Reply to model query (10 FF 20 F0)
+                if (data.length === 4 && data[0] === 0x10 && data[1] === 0xff && data[2] === 0x20 && data[3] === 0xf0) {
+                    queueMicrotask(() => {
+                        this.emit('data', new TextEncoder().encode("DP-L13\0"));
+                    });
+                }
+            }
+        }
+
+        const probingSerial = new ProbingSerialTransport();
+        const autoDriver = new MarklifeDriver('auto');
+        await autoDriver.bindTransport(probingSerial);
+
+        // Capabilities should have automatically resolved to L13 (96px, Legacy L11)
+        expect(autoDriver.getCapabilities()).toMatchObject({
+            canvasHeightPx: 96,
+            driverName: 'Marklife (Legacy L11)'
+        });
+    });
+
+    it('driver with legacy dialect forces L11 framing even on generic names', async () => {
+        const legacyDriver = new MarklifeDriver('legacy');
+        const genericTransport = new MockTransport('Unknown Serial Printer');
+        await legacyDriver.bindTransport(genericTransport);
+
+        expect(legacyDriver.getCapabilities()).toMatchObject({
+            driverName: 'Marklife (Legacy L11)'
+        });
+        expect(legacyDriver.name).toBe('Marklife-Legacy-L11');
+    });
 });

@@ -2,6 +2,8 @@ const { app, BrowserWindow, ipcMain, session, shell } = require('electron');
 const path = require('node:path');
 const { fileURLToPath } = require('node:url');
 
+app.commandLine.appendSwitch('enable-features', 'WebSerialBypassBlocklist');
+
 let mainWindow;
 let bluetoothChoice;
 let usbChoice;

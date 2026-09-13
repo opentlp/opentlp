@@ -192,7 +192,9 @@ export const MARKLIFE_HARDWARE_MODELS = [
  *
  * Matched on the advertised name prefix, the same way the official app does.
  */
-const LEGACY_L11_PREFIXES = ['LP90', 'L13'];
+const LEGACY_L11_PREFIXES = ['LP90', 'L13', 'DP-L13'];
+
+export type MarklifeDialect = 'auto' | 'standard' | 'legacy';
 
 /**
  * Marklife's `0x1F` protocol, and the `10 FF` INFO command family beside it.
@@ -217,7 +219,7 @@ const LEGACY_L11_PREFIXES = ['LP90', 'L13'];
  * printer's power-saving setting.
  */
 export class MarklifeDriver implements IPrinterDriver {
-    public readonly name = "Marklife-Protocol-0x1F";
+    public readonly name: string;
     public readonly driverType = 'hardware' as const;
 
     // The Universal Print Manager will request these services
@@ -251,6 +253,11 @@ export class MarklifeDriver implements IPrinterDriver {
     private writeCharacteristicId: string | null = null;
     private hasFlowControl = false;
     private lastOptions: UniversalPrintOptions | null = null;
+    private detectedModel: string | null = null;
+
+    constructor(public readonly dialect: MarklifeDialect = 'auto') {
+        this.name = dialect === 'legacy' ? "Marklife-Legacy-L11" : "Marklife-Protocol-0x1F";
+    }
 
     /** Convert a millimetre feed distance to printer dots (8 dpmm). */
     private mmToDots(mm: number): number {
@@ -259,8 +266,17 @@ export class MarklifeDriver implements IPrinterDriver {
 
     /** True for models on the manufacturer's legacy "L11" command path. */
     private usesLegacyL11(): boolean {
-        const name = (this.transport?.getDeviceName() ?? '').toUpperCase();
-        return LEGACY_L11_PREFIXES.some(prefix => name.startsWith(prefix));
+        if (this.dialect === 'legacy') return true;
+        if (this.dialect === 'standard') return false;
+
+        const names = [
+            this.detectedModel,
+            this.transport?.getDeviceName()
+        ].filter(Boolean).map(n => n!.toUpperCase());
+
+        return LEGACY_L11_PREFIXES.some(prefix =>
+            names.some(name => name.includes(prefix))
+        );
     }
 
     /**
@@ -270,8 +286,11 @@ export class MarklifeDriver implements IPrinterDriver {
      * standalone test pages that print on it.
      */
     private legacyEnableByte(): number {
-        const name = (this.transport?.getDeviceName() ?? '').toUpperCase();
-        return name.startsWith('L13') ? 0x03 : 0x02;
+        const names = [
+            this.detectedModel,
+            this.transport?.getDeviceName()
+        ].filter(Boolean).map(n => n!.toUpperCase());
+        return names.some(n => n.includes('L13')) ? 0x03 : 0x02;
     }
 
     /** Concatenate command fragments into one job buffer. */
@@ -283,9 +302,18 @@ export class MarklifeDriver implements IPrinterDriver {
     }
     private dataListener: ((data: Uint8Array, characteristicId?: string) => void) | null = null;
 
-    // ... (rest of outer class content, skipping constructors for briefness)
-
     public isCompatible(deviceName: string): boolean {
+        const upper = deviceName.toUpperCase();
+
+        if (this.dialect === 'legacy') {
+            return LEGACY_L11_PREFIXES.some(prefix => upper.includes(prefix));
+        }
+
+        const isLegacyModel = LEGACY_L11_PREFIXES.some(prefix => upper.includes(prefix));
+        if (this.dialect === 'standard' && isLegacyModel) {
+            return false;
+        }
+
         const lower = deviceName.toLowerCase();
 
         if (lower.includes('marklife') || lower.startsWith('p12_')) {
@@ -321,17 +349,38 @@ export class MarklifeDriver implements IPrinterDriver {
         this.writeCharacteristicId = '0000ff02-0000-1000-8000-00805f9b34fb';
         const notifyCharacteristicId = '0000ff03-0000-1000-8000-00805f9b34fb';
 
+        const isSerialOrUsb = transport.filterType === 'usb' 
+            || (transport.type && (transport.type.toLowerCase().includes('serial') || transport.type.toLowerCase().includes('usb')));
+
         if (this.transport.startNotifications) {
             await this.transport.startNotifications({
                 serviceUUID: this.connectionRequirements.services[0],
                 notifyUUID: notifyCharacteristicId
             });
-            this.hasFlowControl = true;
+            this.hasFlowControl = !isSerialOrUsb;
         } else {
             this.hasFlowControl = false;
         }
 
         this.flowControl.reset();
+
+        // Best-effort model query to detect L13/LP90 over serial or unknown connections
+        const currentName = this.transport.getDeviceName();
+        const isGeneric = !currentName || currentName.toLowerCase().startsWith('serial') || currentName.toLowerCase() === 'unknown';
+        if (this.dialect === 'auto' && isGeneric) {
+            try {
+                const probe = await this.askInfo([0x10, 0xff, 0x20, 0xf0], 300);
+                if (probe) {
+                    const decoder = new TextDecoder('utf-8');
+                    const modelStr = decoder.decode(probe).trim().replace(/\0/g, '');
+                    if (modelStr) {
+                        this.detectedModel = modelStr;
+                    }
+                }
+            } catch {
+                // Best-effort probe; silence is expected if device is busy or unanswering
+            }
+        }
     }
 
     public async unbindTransport(): Promise<void> {
@@ -342,11 +391,13 @@ export class MarklifeDriver implements IPrinterDriver {
         this.transport = null;
         this.writeCharacteristicId = null;
         this.hasFlowControl = false;
+        this.detectedModel = null;
         this.flowControl.reset();
     }
 
     public getCapabilities(): PrinterCapabilities {
-        const deviceName = this.transport?.getDeviceName()?.toLowerCase() || "";
+        const candidateName = this.detectedModel || this.transport?.getDeviceName() || "";
+        const deviceName = candidateName.toLowerCase();
 
         // Default to P12 size (96) if no profile matches
         let canvasHeightPx = 96;
@@ -424,6 +475,9 @@ export class MarklifeDriver implements IPrinterDriver {
                     || id === NOTIFY_CHAR.replace(/-/g, '').toLowerCase()
                     || id.includes('1e4d'); // shortened/normalised UUID forms
                 if (!mine) return;
+                // Flow control notifications (0xFF03) are [0x01, credits]. Ignore them here.
+                if (data.length === 2 && data[0] === 0x01) return;
+
                 clearTimeout(timer);
                 transport.off('data', onData);
                 resolve(new Uint8Array(data));
@@ -482,11 +536,16 @@ export class MarklifeDriver implements IPrinterDriver {
             return s.length ? s : undefined;
         };
 
+        const resolvedDeviceName = text(name);
+        if (resolvedDeviceName && this.dialect === 'auto') {
+            this.detectedModel = resolvedDeviceName;
+        }
+
         const faults: PrinterFault[] = [];
         const status: PrinterStatus = {
             identity: {
                 hardwareVersion: text(hardware),
-                deviceName: text(name),
+                deviceName: resolvedDeviceName,
                 firmwareVersion: text(firmware),
                 serialNumber: text(serial)
             },
