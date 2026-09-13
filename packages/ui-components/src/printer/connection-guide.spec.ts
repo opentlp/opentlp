@@ -104,5 +104,16 @@ describe('connection-guide', () => {
             const genericGuide = getTransportGuidance('serial', linuxPlatform, '');
             expect(genericGuide.steps?.some(s => s.includes('Select your printer name'))).toBe(true);
         });
+
+        it('provides usbHint for Serial covering wired USB cable on Linux and Windows', () => {
+            const linuxSerial = getTransportGuidance('serial', linuxPlatform);
+            expect(linuxSerial.usbHint).toBeDefined();
+            expect(linuxSerial.usbHint).toContain('dialout');
+            expect(linuxSerial.usbHint).toContain('USB cable');
+
+            const winSerial = getTransportGuidance('serial', windowsPlatform);
+            expect(winSerial.usbHint).toBeDefined();
+            expect(winSerial.usbHint).toContain('COM');
+        });
     });
 });

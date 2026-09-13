@@ -38,6 +38,8 @@ export interface AppSettings {
      * things you do not have into the list of things you do.
      */
     bookmarks?: string[];
+    /** Whether the virtual simulation printer is exposed in connection panels. */
+    showVirtualPrinter?: boolean;
 }
 
 /** Sidebar sizing limits, shared by the store and the drag handles. */
@@ -76,6 +78,8 @@ export class SettingsStore {
     onboarded = $state<boolean>(false);
     /** See {@link AppSettings.bookmarks}. */
     bookmarks = $state<string[]>([]);
+    /** Whether the virtual printer is visible in transport lists (disabled for end users by default). */
+    showVirtualPrinter = $state<boolean>(false);
 
     constructor() {
         this.load();
@@ -120,6 +124,9 @@ export class SettingsStore {
                 if (Array.isArray(parsed.bookmarks)) {
                     this.bookmarks = parsed.bookmarks.filter((b): b is string => typeof b === 'string');
                 }
+                if (typeof parsed.showVirtualPrinter === 'boolean') {
+                    this.showVirtualPrinter = parsed.showVirtualPrinter;
+                }
                 const sb = parsed.sidebars;
                 if (sb && typeof sb === 'object') {
                     const clamp = (v: unknown, d: number) =>
@@ -135,6 +142,20 @@ export class SettingsStore {
                 if (import.meta.env.DEV) console.warn('Failed to parse settings:', err);
             }
         }
+
+        // Check for dev URL flag or custom localStorage override
+        if (typeof window !== 'undefined') {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('virtualPrinter') === '1' || params.get('virtualPrinter') === 'true' || params.get('dev') === '1') {
+                    this.showVirtualPrinter = true;
+                }
+                const flag = localStorage.getItem('opentlp.virtualPrinter') ?? localStorage.getItem('enableVirtualPrinter');
+                if (flag === 'true' || flag === '1') {
+                    this.showVirtualPrinter = true;
+                }
+            } catch {}
+        }
     }
 
     save() {
@@ -148,6 +169,7 @@ export class SettingsStore {
             paper: this.paper,
             onboarded: this.onboarded,
             bookmarks: this.bookmarks,
+            showVirtualPrinter: this.showVirtualPrinter,
             sidebars: {
                 leftW: this.leftW, rightW: this.rightW,
                 leftOpen: this.leftOpen, rightOpen: this.rightOpen
@@ -158,3 +180,13 @@ export class SettingsStore {
 }
 
 export const globalSettings = new SettingsStore();
+
+// Expose browser console helper for developers/testers to toggle virtual printer
+if (typeof window !== 'undefined') {
+    (window as unknown as { enableVirtualPrinter?: (enabled?: boolean) => boolean }).enableVirtualPrinter = (enabled = true) => {
+        globalSettings.showVirtualPrinter = Boolean(enabled);
+        globalSettings.save();
+        console.log(`[OpenTLP] Virtual Printer is now ${globalSettings.showVirtualPrinter ? 'ENABLED' : 'DISABLED'}.`);
+        return globalSettings.showVirtualPrinter;
+    };
+}

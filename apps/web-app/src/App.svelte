@@ -64,20 +64,20 @@
                   },
                   {
                       id: 'web-usb',
-                      label: 'USB',
-                      description: 'WebUSB device chooser',
+                      label: 'Direct USB',
+                      description: 'Direct USB label printers (vendor WebUSB)',
                       available: hasWebUsb && secure,
                       unavailableReason: !secure
                           ? 'WebUSB needs HTTPS or localhost.'
                           : 'This browser has no WebUSB support.',
                       help: {
-                          summary: 'USB needs a one-time driver setup (Windows)',
+                          summary: 'Direct USB needs a one-time driver setup (Windows)',
                           steps: [
                               'Download and run Zadig (link below).',
                               'Options → List All Devices, then select your printer in the dropdown.',
                               'Set the target driver to <strong>WinUSB</strong> and choose Replace Driver. This exposes the printer to the browser; it will no longer appear as a Windows printer.',
                               'Back here, set <strong>Printer protocol</strong> to your printer\'s family (e.g. Marklife) — Automatic cannot detect a USB device.',
-                              'Click USB, then pick your printer in the browser\'s device chooser.'
+                              'Click Direct USB, then pick your printer in the browser\'s device chooser.'
                           ],
                           link: {
                               label: 'Download Zadig (official)',
@@ -88,8 +88,8 @@
                   },
                   {
                       id: 'web-serial',
-                      label: 'Serial / Bluetooth Classic',
-                      description: 'Web Serial device chooser',
+                      label: 'Serial (USB & Bluetooth)',
+                      description: 'Wired USB cable (USB-Serial) or paired Bluetooth Classic printer',
                       available: hasWebSerial && secure,
                       unavailableReason: !secure
                           ? 'Web Serial needs HTTPS or localhost.'

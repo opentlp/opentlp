@@ -62,13 +62,22 @@
         isPickingPrinter = false;
     }
 
+    const visibleTransports = $derived.by(() => {
+        return transports.filter(t => {
+            if (t.isDummy || t.id === 'dummy') {
+                return settings.showVirtualPrinter;
+            }
+            return true;
+        });
+    });
+
     const sortedTransports = $derived.by(() => {
         const tierRank: Record<GuidanceTier, number> = {
             recommended: 0,
             alternative: 1,
             discouraged: 2
         };
-        return [...transports].sort((a, b) => {
+        return [...visibleTransports].sort((a, b) => {
             const guideA = getTransportGuidance(a.id, platform, selectedPrinterModel);
             const guideB = getTransportGuidance(b.id, platform, selectedPrinterModel);
             const rankDiff = tierRank[guideA.tier] - tierRank[guideB.tier];
@@ -262,10 +271,17 @@
                         </div>
                     {/if}
 
+                    <!-- USB Cable connection guidance -->
+                    {#if guidance.usbHint}
+                        <div class="guidance-usb-note">
+                            <span class="note-label">🔌 USB Cable:</span> {guidance.usbHint}
+                        </div>
+                    {/if}
+
                     <!-- Step-by-step instructions (e.g. for Bluetooth Serial / Classic) -->
                     {#if guidance.steps && guidance.steps.length > 0}
                         <div class="guidance-steps">
-                            <strong>Setup steps for {platform.osName}:</strong>
+                            <strong>📶 Bluetooth setup steps for {platform.osName}:</strong>
                             <ol>
                                 {#each guidance.steps as step}
                                     <li>{step}</li>
@@ -519,6 +535,18 @@
         background: color-mix(in srgb, var(--danger, #e74c3c) 10%, var(--panel));
         border-left: 3px solid var(--danger, #e74c3c);
         color: var(--text);
+    }
+    .guidance-usb-note {
+        padding: 7px 10px;
+        font-size: 12px;
+        line-height: 1.45;
+        background: var(--panel-2);
+        border-radius: 2px;
+        border: 1px solid var(--border);
+        color: var(--text);
+    }
+    .guidance-usb-note .note-label {
+        font-weight: 600;
     }
     .guidance-steps {
         padding: 8px 10px;

@@ -22,6 +22,7 @@ export interface TransportGuidance {
     badge: string;
     warning?: string;
     hints?: string;
+    usbHint?: string;
     steps?: string[];
     discouragedReason?: string;
 }
@@ -135,9 +136,15 @@ export function getTransportGuidance(
         };
     }
 
-    // 3. BLUETOOTH SERIAL / CLASSIC (RFCOMM / SPP)
+    // 3. SERIAL (USB CABLE & BLUETOOTH CLASSIC RFCOMM / SPP)
     if (isSerial) {
         const isRecommended = platform.os === 'linux' || isL13;
+
+        const usbHint = platform.os === 'linux'
+            ? 'Plug in via USB cable and click Connect (select your device, e.g. /dev/ttyUSB0 or /dev/ttyACM0). Ensure your user account is in group dialout (sudo usermod -a -G dialout $USER).'
+            : platform.os === 'windows'
+            ? 'Plug in via USB cable and click Connect (select your USB-Serial COM port, e.g. COM3 or COM4).'
+            : 'Plug in via USB cable, click Connect, and choose your serial port from the list.';
 
         const steps: string[] = [
             `Open your ${platform.osName} Bluetooth settings (${platform.os === 'windows' ? 'Settings > Bluetooth & devices' : platform.os === 'linux' ? 'Settings > Bluetooth' : 'Bluetooth Settings'}).`,
@@ -170,21 +177,22 @@ export function getTransportGuidance(
             tier: isRecommended ? 'recommended' : 'alternative',
             badge: isRecommended
                 ? (isL13 ? 'Recommended for L13' : 'Recommended on Linux')
-                : 'Alternative (Requires OS pairing)',
-            hints: 'Requires pairing in your computer/phone Bluetooth settings first.',
+                : 'USB Cable / Bluetooth Serial',
+            usbHint,
+            hints: 'Supports wired USB cables (USB-Serial) or OS-paired Bluetooth Classic.',
             steps
         };
     }
 
-    // 4. USB (WebUSB / USB-Serial)
+    // 4. DIRECT USB (WebUSB / Vendor USB)
     if (isUsb) {
         if (platform.os === 'linux') {
             return {
                 tier: 'discouraged',
                 badge: 'Not recommended on Linux',
-                discouragedReason: 'WebUSB on Linux is not recommended and typically fails to claim printer interfaces without custom udev rules. Use Serial instead.',
-                warning: 'Direct WebUSB on Linux often cannot claim printer interfaces or conflicts with system drivers. Serial / Bluetooth Classic is recommended.',
-                hints: 'Plug in via USB. (Ensure your user account has serial/USB permissions in group dialout).'
+                discouragedReason: 'Direct WebUSB on Linux typically fails to claim printer interfaces without custom udev rules. If connecting via USB cable, use Serial (USB & Bluetooth) instead.',
+                warning: 'Direct WebUSB on Linux often cannot claim printer interfaces or conflicts with kernel drivers. If connecting via USB cable, use Serial (USB & Bluetooth) above.',
+                hints: 'Use Serial (USB & Bluetooth) above for USB cable connections.'
             };
         }
 
@@ -192,7 +200,7 @@ export function getTransportGuidance(
             return {
                 tier: 'alternative',
                 badge: 'Direct USB',
-                hints: 'Plug in via USB. (WebUSB on Windows may require a one-time WinUSB driver setup with Zadig).'
+                hints: 'Plug in via USB. (WebUSB on Windows may require a one-time WinUSB driver setup with Zadig. For USB-Serial COM cables, use Serial above).'
             };
         }
 

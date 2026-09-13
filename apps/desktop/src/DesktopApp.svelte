@@ -20,13 +20,13 @@
             create: () => new UniversalBluetoothTransport()
         },
         {
-            id: 'usb', label: 'USB',
-            description: 'USB label printers', available: true,
+            id: 'usb', label: 'Direct USB',
+            description: 'Direct USB label printers (vendor WebUSB)', available: true,
             create: () => new WebUsbTransport()
         },
         {
-            id: 'serial', label: 'Serial / Bluetooth Classic',
-            description: 'Serial devices exposed by the operating system', available: true,
+            id: 'serial', label: 'Serial (USB & Bluetooth)',
+            description: 'Wired USB cable (USB-Serial) or paired Bluetooth Classic printer', available: true,
             create: () => new WebSerialTransport()
         },
         {
