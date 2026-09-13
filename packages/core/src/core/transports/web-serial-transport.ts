@@ -65,6 +65,18 @@ export class WebSerialTransport extends EventEmitter<TransportEventMap> implemen
             }];
 
         this.port = await serial.requestPort(portFilters ? { filters: portFilters } : undefined);
+
+        const win = typeof window !== "undefined"
+            ? (window as Window & { __lastSelectedSerialDeviceName?: string })
+            : (typeof globalThis !== "undefined" ? (globalThis as unknown as { __lastSelectedSerialDeviceName?: string }) : undefined);
+
+        if (win?.__lastSelectedSerialDeviceName) {
+            if (!this.options.deviceName || this.options.deviceName === "Serial Printer") {
+                this.options.deviceName = win.__lastSelectedSerialDeviceName;
+            }
+            delete win.__lastSelectedSerialDeviceName;
+        }
+
         await this.port.open({ baudRate: this.options.baudRate });
         if (!this.port.writable) throw new Error("The selected serial port is not writable.");
         this.writer = this.port.writable.getWriter();

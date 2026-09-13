@@ -243,7 +243,7 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
         }
 
         if (!matchedDriver) {
-            throw new Error(`Connected to ${deviceName || 'Unknown device'} but no compatible driver was found.`);
+            throw new Error(`Connected to ${deviceName || 'Unknown device'} but no compatible driver was found. Please select your printer protocol manually.`);
         }
 
         await this.bindMatchedDriver(matchedDriver);

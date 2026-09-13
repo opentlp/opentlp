@@ -35,4 +35,26 @@ describe("WebSerialTransport", () => {
         await transport.disconnect();
         expect(port.close).toHaveBeenCalled();
     });
+
+    it("adopts window.__lastSelectedSerialDeviceName upon connection", async () => {
+        const port = {
+            readable: null,
+            writable: new WritableStream<Uint8Array>({ write() {} }),
+            open: vi.fn().mockResolvedValue(undefined),
+            close: vi.fn().mockResolvedValue(undefined),
+            getInfo: () => ({})
+        };
+        const serial = { requestPort: vi.fn().mockResolvedValue(port) };
+        (globalThis as unknown as { __lastSelectedSerialDeviceName?: string }).__lastSelectedSerialDeviceName = "L13_81E0";
+
+        const transport = new WebSerialTransport({ serial });
+        expect(transport.getDeviceName()).toBe("Serial Printer");
+
+        await transport.connect();
+
+        expect(transport.getDeviceName()).toBe("L13_81E0");
+        expect((globalThis as unknown as { __lastSelectedSerialDeviceName?: string }).__lastSelectedSerialDeviceName).toBeUndefined();
+
+        await transport.disconnect();
+    });
 });

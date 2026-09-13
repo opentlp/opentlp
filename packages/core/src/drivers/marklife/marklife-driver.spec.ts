@@ -245,30 +245,27 @@ describe('MarklifeDriver', () => {
         expect([...job.slice(15, 19)]).toEqual([0x10, 0xff, 0xf1, 0x02]);
     });
 
-    it('automatically detects DP-L13 via model probe on generic serial', async () => {
-        class ProbingSerialTransport extends EventEmitter<TransportEventMap> implements IDeviceTransport {
+    it('automatically resolves DP-L13 / L13 via deviceName on serial without sending probe commands', async () => {
+        class MockNamedSerialTransport extends EventEmitter<TransportEventMap> implements IDeviceTransport {
             type = "Serial-WebSerial";
             filterType = "none" as const;
             public writes: Uint8Array[] = [];
             isConnected() { return true; }
-            getDeviceName() { return "Serial Printer"; }
+            getDeviceName() { return "L13_81E0"; }
             async connect() {}
             async disconnect() {}
             async startNotifications() {}
             async write(data: Uint8Array) {
                 this.writes.push(new Uint8Array(data));
-                // Reply to model query (10 FF 20 F0)
-                if (data.length === 4 && data[0] === 0x10 && data[1] === 0xff && data[2] === 0x20 && data[3] === 0xf0) {
-                    queueMicrotask(() => {
-                        this.emit('data', new TextEncoder().encode("DP-L13\0"));
-                    });
-                }
             }
         }
 
-        const probingSerial = new ProbingSerialTransport();
+        const serialTransport = new MockNamedSerialTransport();
         const autoDriver = new MarklifeDriver('auto');
-        await autoDriver.bindTransport(probingSerial);
+        await autoDriver.bindTransport(serialTransport);
+
+        // No probe bytes should be sent during bindTransport
+        expect(serialTransport.writes).toHaveLength(0);
 
         // Capabilities should have automatically resolved to L13 (96px, Legacy L11)
         expect(autoDriver.getCapabilities()).toMatchObject({

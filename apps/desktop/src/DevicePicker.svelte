@@ -45,13 +45,28 @@
     }
 
     function choose(id: string): void {
-        if (kind === 'bluetooth') window.electronAPI.chooseBluetoothDevice(id);
-        else if (kind === 'usb') window.electronAPI.chooseUsbDevice(id);
-        else window.electronAPI.chooseSerialDevice(id);
+        const chosen = devices.find(d => d.id === id);
+        if (kind === 'bluetooth') {
+            window.electronAPI.chooseBluetoothDevice(id);
+        } else if (kind === 'usb') {
+            if (chosen?.label) {
+                (window as Window & { __lastSelectedUsbDeviceName?: string }).__lastSelectedUsbDeviceName = chosen.label;
+            }
+            window.electronAPI.chooseUsbDevice(id);
+        } else {
+            if (chosen?.label) {
+                (window as Window & { __lastSelectedSerialDeviceName?: string }).__lastSelectedSerialDeviceName = chosen.label;
+            }
+            window.electronAPI.chooseSerialDevice(id);
+        }
         close();
     }
 
     function cancel(): void {
+        if (typeof window !== 'undefined') {
+            delete (window as Window & { __lastSelectedSerialDeviceName?: string }).__lastSelectedSerialDeviceName;
+            delete (window as Window & { __lastSelectedUsbDeviceName?: string }).__lastSelectedUsbDeviceName;
+        }
         if (kind === 'bluetooth') window.electronAPI.cancelBluetoothDevice();
         else if (kind === 'usb') window.electronAPI.cancelUsbDevice();
         else if (kind === 'serial') window.electronAPI.cancelSerialDevice();

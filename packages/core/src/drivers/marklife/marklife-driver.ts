@@ -363,24 +363,6 @@ export class MarklifeDriver implements IPrinterDriver {
         }
 
         this.flowControl.reset();
-
-        // Best-effort model query to detect L13/LP90 over serial or unknown connections
-        const currentName = this.transport.getDeviceName();
-        const isGeneric = !currentName || currentName.toLowerCase().startsWith('serial') || currentName.toLowerCase() === 'unknown';
-        if (this.dialect === 'auto' && isGeneric) {
-            try {
-                const probe = await this.askInfo([0x10, 0xff, 0x20, 0xf0], 300);
-                if (probe) {
-                    const decoder = new TextDecoder('utf-8');
-                    const modelStr = decoder.decode(probe).trim().replace(/\0/g, '');
-                    if (modelStr) {
-                        this.detectedModel = modelStr;
-                    }
-                }
-            } catch {
-                // Best-effort probe; silence is expected if device is busy or unanswering
-            }
-        }
     }
 
     public async unbindTransport(): Promise<void> {
