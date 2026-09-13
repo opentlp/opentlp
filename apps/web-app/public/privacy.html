@@ -64,6 +64,37 @@
         manufacturer.
     </p>
 
+    <h2>Support reports</h2>
+    <p>
+        The in-app reporting tool prepares a draft locally. Automatic context is limited
+        to the Studio build, coarse browser and operating-system family, available Web
+        device APIs, connection state, static printer profile, the exact transport option
+        and implementation, driver name, typed error code and printer capabilities. When
+        exposed by the transport or driver, the editable draft is also prefilled with the
+        device name, protocol service UUIDs, firmware and hardware revision. A bounded
+        OpenTLP activity log records structured connection, probe and print events; it is
+        not a copy of the browser console and contains no raw errors. After a print, the
+        report may also include page dimensions and print settings. It does not read or
+        include label content, saved designs, filenames, device identifiers, serial
+        numbers, Bluetooth addresses, paper identifiers or names, raw error messages, or
+        the full browser identifier.
+    </p>
+    <p>
+        You can edit or remove the automatically filled printer facts and activity log,
+        then review the complete draft before continuing. Choosing “Continue to GitHub”
+        sends the displayed draft and anything you entered to GitHub in order to open its
+        issue editor; it is not public unless you submit the issue there. Remove personal
+        information before continuing.
+    </p>
+    <p>
+        Successful-print issues contain a machine-readable copy of the same non-secret
+        printer, driver, transport, platform and media-width facts shown in the draft.
+        OpenTLP counts each public GitHub account at most once per exact combination and
+        publishes only aggregate counts—never account names. Studio stops prompting for
+        another success confirmation after three independent reports for that combination.
+        Connection and print problems always remain reportable.
+    </p>
+
     <h2>External links</h2>
     <p>
         Following a link to GitHub or OpenTLP opens that provider's website. Their own

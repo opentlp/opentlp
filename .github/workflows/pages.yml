@@ -3,10 +3,13 @@ name: Deploy GitHub Pages
 on:
   push:
     branches: [main]
+  issues:
+    types: [opened, edited, closed, reopened, labeled, unlabeled, deleted]
   workflow_dispatch:
 
 permissions:
   contents: read
+  issues: read
   pages: write
   id-token: write
 
@@ -39,10 +42,20 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v6
 
+      - name: Aggregate successful-print evidence
+        run: npm run evidence:build
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PRINT_EVIDENCE_OUTPUT: temp/print-evidence.json
+
       - name: Build web app
         run: npm run build
         env:
           VITE_BASE_PATH: /opentlp/studio/
+          VITE_COMMIT_SHA: ${{ github.sha }}
+
+      - name: Add successful-print evidence to Studio
+        run: cp temp/print-evidence.json apps/web-app/dist/print-evidence.json
 
       - name: Build ULT documentation
         uses: actions/jekyll-build-pages@v1

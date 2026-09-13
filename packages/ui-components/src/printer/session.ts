@@ -51,6 +51,14 @@ export const DUMMY_PROFILES: readonly DummyProfile[] = [
 export interface PrinterSnapshot {
     state: PrinterState;
     deviceName?: string;
+    /** Static UI transport option id (for example web-bluetooth), never a hardware identifier. */
+    transportKind?: string;
+    /** Concrete transport implementation name exposed by the transport itself. */
+    transportType?: string;
+    /** Exact registered driver identifier selected by PrintManager. */
+    driverName?: string;
+    /** Protocol service UUIDs declared by the active driver. */
+    serviceUuids?: readonly string[];
     capabilities?: PrinterCapabilities;
     /**
      * Typed readings from the printer. `null` until the first read, and on
@@ -76,20 +84,33 @@ export class PrinterSession {
     private snapshot: PrinterSnapshot = { state: 'disconnected', status: null, reports: [] };
     private subscribers = new Set<Subscriber>();
     private pendingDummyProfile?: DummyProfile;
+    private diagnosticEntries: string[] = [];
+    private diagnosticSequence = 0;
 
     constructor() {
         this.pm.on('connected', this.handleConnected);
         this.pm.on('disconnected', () => {
+            this.recordDiagnostic('connection closed');
             this.update({
                 state: 'disconnected', deviceName: undefined,
-                capabilities: undefined, status: null, reports: []
+                capabilities: undefined, driverName: undefined, status: null, reports: [], serviceUuids: undefined
             });
         });
-        this.pm.on('printing', () => this.update({ state: 'printing' }));
-        this.pm.on('idle', () => {
-            if (this.snapshot.state === 'printing') this.update({ state: 'connected' });
+        this.pm.on('printing', () => {
+            this.recordDiagnostic('print transfer started');
+            this.update({ state: 'printing' });
         });
-        this.pm.on('error', err => this.update({ lastError: toPrinterError(err, 'transport') }));
+        this.pm.on('idle', () => {
+            if (this.snapshot.state === 'printing') {
+                this.recordDiagnostic('print transfer completed');
+                this.update({ state: 'connected' });
+            }
+        });
+        this.pm.on('error', err => {
+            const printerError = toPrinterError(err, 'transport');
+            this.recordDiagnostic(`operation failed: ${printerError.code}`);
+            this.update({ lastError: printerError });
+        });
     }
 
     /** Svelte store contract. */
@@ -108,12 +129,21 @@ export class PrinterSession {
      * platform). `dummyProfile` configures the virtual printer when the Dummy
      * driver ends up matching, so different printheads can be simulated.
      */
-    async connect(transport: IDeviceTransport, dummyProfile?: DummyProfile, driverName?: string, modelId?: string): Promise<void> {
+    async connect(
+        transport: IDeviceTransport,
+        dummyProfile?: DummyProfile,
+        driverName?: string,
+        modelId?: string,
+        transportKind?: string
+    ): Promise<void> {
         if (this.snapshot.state === 'connecting' || this.snapshot.state === 'printing') {
             throw new PrinterError('not-connected', `Cannot connect while ${this.snapshot.state}.`);
         }
         this.pendingDummyProfile = dummyProfile;
-        this.update({ state: 'connecting', lastError: undefined });
+        this.recordDiagnostic(
+            `connection requested: option=${transportKind ?? 'unspecified'}, transport=${transport.type}, driver=${driverName ?? 'automatic'}, model=${modelId ?? 'automatic'}`
+        );
+        this.update({ state: 'connecting', transportKind, transportType: transport.type, lastError: undefined });
         try {
             await this.pm.connect(transport, driverName, modelId);
         } catch (err) {
@@ -133,18 +163,36 @@ export class PrinterSession {
      * device name patterns, and returns candidate driver recommendations.
      */
     async diagnose(transport: IDeviceTransport): Promise<DeviceDiagnostic> {
-        return this.pm.diagnoseDevice(transport);
+        this.recordDiagnostic(`diagnostic probe requested: transport=${transport.type}`);
+        try {
+            const result = await this.pm.diagnoseDevice(transport);
+            this.recordDiagnostic(
+                `diagnostic probe completed: services=${result.discoveredServices.length}, candidates=${result.candidates.length}`
+            );
+            return result;
+        } catch (err) {
+            this.recordDiagnostic(`diagnostic probe failed: ${toPrinterError(err, 'transport').code}`);
+            throw err;
+        }
     }
 
     /**
      * Connect using an already-established transport link (e.g. after running
      * a diagnostic probe or when the user chooses a candidate driver).
      */
-    async connectWithTransport(transport: IDeviceTransport, driverName?: string, modelId?: string): Promise<void> {
+    async connectWithTransport(
+        transport: IDeviceTransport,
+        driverName?: string,
+        modelId?: string,
+        transportKind?: string
+    ): Promise<void> {
         if (this.snapshot.state === 'connecting' || this.snapshot.state === 'printing') {
             throw new PrinterError('not-connected', `Cannot connect while ${this.snapshot.state}.`);
         }
-        this.update({ state: 'connecting', lastError: undefined });
+        this.recordDiagnostic(
+            `connection requested after probe: option=${transportKind ?? 'unspecified'}, transport=${transport.type}, driver=${driverName ?? 'automatic'}, model=${modelId ?? 'automatic'}`
+        );
+        this.update({ state: 'connecting', transportKind, transportType: transport.type, lastError: undefined });
         try {
             await this.pm.connectWithTransport(transport, driverName, modelId);
         } catch (err) {
@@ -158,6 +206,15 @@ export class PrinterSession {
     /** Hardware protocol families available for an explicit connection override. */
     getDriverChoices(): PrinterDriverChoice[] {
         return this.pm.getAvailableDriverChoices();
+    }
+
+    /**
+     * Bounded, structured activity intended for a user-reviewed support report.
+     * It deliberately records no raster/design data, device ids, serials, raw
+     * errors, or console output from unrelated code.
+     */
+    getDiagnosticLog(): readonly string[] {
+        return [...this.diagnosticEntries];
     }
 
     async disconnect(): Promise<void> {
@@ -201,11 +258,16 @@ export class PrinterSession {
         this.update({
             state: 'connected',
             deviceName: simulated ?? this.pm.getConnectedDeviceName(),
+            driverName: driver.name,
             capabilities: this.pm.getCapabilities(),
             reports: this.pm.getReportedFields(),
+            serviceUuids: this.pm.getActiveDriverServiceUuids(),
             status: null,
             lastError: undefined
         });
+        this.recordDiagnostic(
+            `connection established: transport=${this.snapshot.transportType ?? 'unspecified'}, driver=${driver.name}, services=${this.snapshot.serviceUuids?.length ?? 0}`
+        );
     };
 
     /**
@@ -224,6 +286,9 @@ export class PrinterSession {
             // writing then would attach a reading to nothing.
             if (this.snapshot.state === 'connected' || this.snapshot.state === 'printing') {
                 this.update({ status });
+                this.recordDiagnostic(status
+                    ? `printer facts refreshed: identity=${status.identity.deviceName ? 'name' : 'none'}, firmware=${status.identity.firmwareVersion ? 'yes' : 'no'}, hardware=${status.identity.hardwareVersion ? 'yes' : 'no'}`
+                    : 'printer facts unavailable from active driver');
             }
         } catch {
             // Best-effort: much of the supported hardware simply does not answer.
@@ -249,5 +314,20 @@ export class PrinterSession {
     private update(patch: Partial<PrinterSnapshot>): void {
         this.snapshot = { ...this.snapshot, ...patch };
         for (const run of this.subscribers) run(this.snapshot);
+    }
+
+    private recordDiagnostic(message: string): void {
+        const withoutControls = Array.from(message, character => {
+            const code = character.codePointAt(0) ?? 0;
+            return code <= 0x1f || (code >= 0x7f && code <= 0x9f) ? ' ' : character;
+        }).join('');
+        const safe = withoutControls
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 300);
+        if (!safe) return;
+        this.diagnosticSequence += 1;
+        this.diagnosticEntries.push(`#${String(this.diagnosticSequence).padStart(2, '0')} ${safe}`);
+        if (this.diagnosticEntries.length > 40) this.diagnosticEntries.shift();
     }
 }

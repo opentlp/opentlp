@@ -13,6 +13,7 @@
      *   greyed out, with an explicit warning and a "Proceed anyway" prompt.
      */
     import { fromStore } from 'svelte/store';
+    import { onDestroy, untrack } from 'svelte';
     import { PrinterSession, DUMMY_PROFILES } from '../printer/session';
     import type { TransportOption } from '../printer/transports';
     import PrinterMark from './PrinterMark.svelte';
@@ -29,13 +30,15 @@
         type GuidanceTier,
         type PlatformInfo
     } from '../printer/connection-guide';
+    import type { DiagnosticReportContext } from '../reporting/report';
 
     interface Props {
         session: PrinterSession;
         transports: TransportOption[];
         showModelBar?: boolean;
+        onreportmissing?: (context?: DiagnosticReportContext) => void;
     }
-    let { session, transports, showModelBar = true }: Props = $props();
+    let { session, transports, showModelBar = true, onreportmissing }: Props = $props();
 
     // svelte-ignore state_referenced_locally -- session identity is stable.
     const printer = fromStore(session);
@@ -45,22 +48,32 @@
     let refreshing = $state(false);
     let busyId = $state<string | null>(null);
     let lastTransportId = $state<string | null>(null);
+    let lastTransportType = $state<string | null>(null);
 
     let diagnosticResult = $state<DeviceDiagnostic | null>(null);
     let diagnosticTransport = $state<IDeviceTransport | null>(null);
     let isDiagnosing = $state(false);
-    let copiedReport = $state(false);
-    let copyTimer: any = null;
 
     let isPickingPrinter = $state(false);
     const platform: PlatformInfo = detectPlatform();
     let allowedAnyway = $state<Record<string, boolean>>({});
+
+    onDestroy(() => {
+        const transport = diagnosticTransport;
+        diagnosticTransport = null;
+        if (transport?.isConnected()) {
+            void transport.disconnect().catch(() => {
+                // Best effort during teardown; there is no UI left to report into.
+            });
+        }
+    });
 
     const selectedPrinterModel = $derived(settings.defaultPrinter || '');
 
     const currentModelProfile = $derived(
         PRINTER_PROFILES.find(p => p.id === selectedPrinterModel)
     );
+    const modelReady = $derived(!!selectedPrinterModel && selectedPrinterModel !== 'none');
 
     function chooseModel(id: string): void {
         settings.defaultPrinter = id;
@@ -95,20 +108,6 @@
         });
     });
 
-    async function copyReport(): Promise<void> {
-        if (!diagnosticResult) return;
-        try {
-            await navigator.clipboard.writeText(diagnosticResult.markdownReport);
-            copiedReport = true;
-            if (copyTimer) clearTimeout(copyTimer);
-            copyTimer = setTimeout(() => {
-                copiedReport = false;
-            }, 2500);
-        } catch (e) {
-            console.warn('Failed to copy diagnostic report:', e);
-        }
-    }
-
     async function closeDiagnostics(): Promise<void> {
         if (diagnosticTransport && diagnosticTransport.isConnected()) {
             try {
@@ -129,7 +128,12 @@
             const transport = diagnosticTransport;
             diagnosticResult = null;
             diagnosticTransport = null;
-            await session.connectWithTransport(transport, driverName, selectedPrinterModel || undefined);
+            await session.connectWithTransport(
+                transport,
+                driverName,
+                selectedPrinterModel || undefined,
+                lastTransportId ?? transport.type
+            );
         } catch (err) {
             const e = toPrinterError(err);
             connectError = errorText(e);
@@ -146,6 +150,8 @@
         busyId = 'diagnose';
         try {
             const transport = targetOption.create();
+            lastTransportId = targetOption.id;
+            lastTransportType = transport.type;
             const result = await session.diagnose(transport);
             diagnosticTransport = transport;
             diagnosticResult = result;
@@ -158,15 +164,38 @@
         }
     }
 
+    function reportMissing(whatHappened: string, includeDiagnostic = false): void {
+        const result = includeDiagnostic ? diagnosticResult : null;
+        onreportmissing?.({
+            advertisedName: result?.deviceName ?? snap.status?.identity.deviceName ?? snap.deviceName,
+            firmwareVersion: snap.status?.identity.firmwareVersion,
+            hardwareVersion: snap.status?.identity.hardwareVersion,
+            transportKind: lastTransportId ?? snap.transportKind,
+            transportType: result?.transportType ?? lastTransportType ?? snap.transportType,
+            driverName: result?.suggestedDriver ?? (driverOverride || snap.driverName),
+            whatHappened,
+            serviceUuids: result?.discoveredServices ?? snap.serviceUuids ?? [],
+            candidateDrivers: result?.candidates.map(candidate => ({
+                name: candidate.driverName,
+                matchedBy: candidate.matchedBy
+            })) ?? []
+        });
+    }
+
     async function connect(option: TransportOption): Promise<void> {
+        if (!modelReady) {
+            connectError = 'Choose your exact printer model first, or use Unknown / Not in list for a safe diagnostic probe.';
+            return;
+        }
         connectError = '';
         busyId = option.id;
         lastTransportId = option.id;
+        const transport = option.create();
+        lastTransportType = transport.type;
 
         if (selectedPrinterModel === 'unknown') {
             isDiagnosing = true;
             try {
-                const transport = option.create();
                 const result = await session.diagnose(transport);
                 diagnosticTransport = transport;
                 diagnosticResult = result;
@@ -182,10 +211,11 @@
 
         try {
             await session.connect(
-                option.create(),
+                transport,
                 option.isDummy ? DUMMY_PROFILES[dummyProfileIdx] : undefined,
                 option.isDummy ? undefined : driverOverride || undefined,
-                option.isDummy ? undefined : selectedPrinterModel || undefined
+                option.isDummy ? undefined : selectedPrinterModel || undefined,
+                option.id
             );
         } catch (err) {
             const e = toPrinterError(err);
@@ -223,7 +253,7 @@
         if (snap.state === 'connected') connectError = '';
     });
 
-    const driverChoices = $derived(session.getDriverChoices());
+    const driverChoices = untrack(() => session.getDriverChoices());
 
     /**
      * The drawing for what actually answered, once something has. Deliberately
@@ -273,6 +303,14 @@
                 </div>
             {/if}
         {/if}
+
+        <div class="model-safety" role="note">
+            <Icon name="info" size={17} />
+            <div>
+                <strong>Choose the exact model before connecting</strong>
+                <span>OpenTLP uses it to select the right command set. Similar-looking printers can use incompatible feed or heat commands, which may stress the mechanism. If you are unsure, choose <em>Unknown / Not in list</em> so Studio probes without printing.</span>
+            </div>
+        </div>
 
         {#if diagnosticResult}
             <div class="diagnostic-panel">
@@ -344,28 +382,18 @@
                     {/if}
                 </div>
 
-                <!-- Escalate to Developers -->
+                <!-- The guided reporter owns privacy review and GitHub formatting. -->
                 <div class="diagnostic-section">
-                    <span class="section-title">Escalate to OpenTLP Developers</span>
+                    <span class="section-title">Share with OpenTLP</span>
                     <p class="escalate-desc">
-                        If your printer isn't working, copy this diagnostic report or open an issue on GitHub so we can add support for your hardware:
+                        The guided report fills the name, service UUIDs and candidate drivers above
+                        automatically. You can remove any of them before opening GitHub.
                     </p>
-                    <pre class="report-box"><code>{diagnosticResult.markdownReport}</code></pre>
-                    <div class="escalate-actions">
-                        <button type="button" class="ghost action-btn" onclick={copyReport}>
-                            <Icon name="copy" size={15} />
-                            <span>{copiedReport ? 'Copied to clipboard!' : 'Copy Diagnostic Report'}</span>
+                    {#if onreportmissing}
+                        <button type="button" class="primary diagnostic-report-btn" onclick={() => reportMissing('Studio probed the printer but did not identify a confirmed working driver.', true)}>
+                            <Icon name="flag" size={15} /> Review privacy-safe report
                         </button>
-                        <a
-                            href="https://github.com/opentlp/opentlp/issues/new?title={encodeURIComponent(`Hardware support request: ${diagnosticResult.deviceName || 'Unknown device'}`)}&body={encodeURIComponent(diagnosticResult.markdownReport)}"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="ghost action-btn action-link"
-                        >
-                            <Icon name="external-link" size={15} />
-                            <span>Report to Devs on GitHub</span>
-                        </a>
-                    </div>
+                    {/if}
                 </div>
             </div>
         {/if}
@@ -434,7 +462,7 @@
                             <button
                                 class="primary"
                                 class:discouraged-btn={isDiscouraged}
-                                disabled={!option.available || snap.state === 'connecting' || isDiagnosing}
+                                disabled={!option.available || !modelReady || snap.state === 'connecting' || isDiagnosing}
                                 onclick={() => connect(option)}
                             >
                                 {#if busyId === option.id && isDiagnosing}
@@ -443,6 +471,8 @@
                                     Connecting…
                                 {:else if selectedPrinterModel === 'unknown'}
                                     Probe &amp; Diagnose
+                                {:else if !modelReady}
+                                    Choose printer first
                                 {:else if isDiscouraged}
                                     Connect anyway
                                 {:else}
@@ -506,6 +536,11 @@
                 </div>
             {/each}
         </div>
+        {#if onreportmissing}
+            <button type="button" class="missing-printer" onclick={() => reportMissing('My printer model is not listed in OpenTLP Studio.')}>
+                <Icon name="flag" size={14} /> My printer is missing
+            </button>
+        {/if}
     {:else}
         <div class="connected">
             {#if artwork}
@@ -560,6 +595,9 @@
                     }}>Try again</button>
                 {/if}
                 <button class="ghost" onclick={() => runDiagnostics()}>Run diagnostics</button>
+                {#if onreportmissing}
+                    <button class="ghost" onclick={() => reportMissing('OpenTLP Studio could not connect to my printer using the selected connection method.')}>Report this connection problem</button>
+                {/if}
             </div>
         </div>
     {/if}
@@ -626,6 +664,20 @@
         max-height: 380px;
         overflow-y: auto;
     }
+    .model-safety {
+        display: flex;
+        align-items: flex-start;
+        gap: 9px;
+        padding: 9px 11px;
+        border-left: 3px solid var(--warn, #b35900);
+        background: color-mix(in srgb, var(--warn, #b35900) 7%, var(--panel));
+        color: var(--text);
+        font-size: 12px;
+        line-height: 1.4;
+    }
+    .model-safety :global(.icon) { flex: none; margin-top: 1px; color: var(--warn, #b35900); }
+    .model-safety strong { display: block; margin-bottom: 2px; }
+    .model-safety span { color: var(--muted); }
     .advanced-protocol summary {
         font-size: 11px;
         color: var(--muted);
@@ -656,6 +708,24 @@
         display: flex;
         flex-direction: column;
         gap: 10px;
+    }
+    .missing-printer {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        width: fit-content;
+        padding: 4px 2px;
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        box-shadow: none;
+        font-size: 12px;
+        cursor: pointer;
+    }
+    .missing-printer:hover {
+        color: var(--accent);
+        transform: none;
+        box-shadow: none;
     }
     .option {
         display: flex;
@@ -994,38 +1064,13 @@
         color: var(--muted);
         margin: 0;
     }
-    .report-box {
-        margin: 0;
-        padding: 8px 10px;
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 2px;
-        font-size: 11px;
-        line-height: 1.4;
-        max-height: 140px;
-        overflow-y: auto;
-        white-space: pre-wrap;
-        word-break: break-word;
-    }
-    .escalate-actions {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-    }
-    .action-btn {
+    .diagnostic-report-btn {
         display: inline-flex;
         align-items: center;
         gap: 6px;
+        width: fit-content;
         font-size: 12px;
-        padding: 5px 10px;
-    }
-    .action-link {
-        text-decoration: none;
-        color: var(--accent);
-    }
-    .action-link:hover {
-        text-decoration: underline;
+        padding: 7px 11px;
     }
     .error-actions {
         display: flex;

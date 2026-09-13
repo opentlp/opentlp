@@ -48,7 +48,8 @@ export const SIDEBAR = { minW: 180, maxW: 520, leftDefault: 244, rightDefault: 3
 export const PRINTER_PROFILES: PrinterModelProfile[] = new PrintManager().getAvailablePrinterProfiles();
 
 export const DEFAULT_PRINTER_CAPS: Record<string, any> = {
-    'none': { canvasHeightPx: 384, dpmm: 8, physical: { headToCutterPx: 100 } }
+    'none': { canvasHeightPx: 384, dpmm: 8, physical: { headToCutterPx: 100 } },
+    'unknown': { canvasHeightPx: 384, dpmm: 8, physical: { headToCutterPx: 100 } }
 };
 
 for (const profile of PRINTER_PROFILES) {
@@ -60,7 +61,7 @@ const STORAGE_KEY = 'blewebler2.settings.v1';
 export class SettingsStore {
     theme = $state<ThemeOption>('system');
     animations = $state<AnimationOption>('normal');
-    defaultPrinter = $state<DefaultPrinterOption>('marklife_p12');
+    defaultPrinter = $state<DefaultPrinterOption>('none');
     customPapers = $state<PaperProfile[]>([]);
     skin = $state<SkinOption>('tech');
     /** Editor sidebars — the user's own layout, so it persists across sessions. */

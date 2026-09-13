@@ -55,7 +55,6 @@ export interface DeviceDiagnostic {
     discoveredServices: string[];
     candidates: CandidateDriverInfo[];
     suggestedDriver?: string;
-    markdownReport: string;
 }
 
 /**
@@ -363,6 +362,17 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
     }
 
     /**
+     * Service UUIDs declared by the active driver.
+     *
+     * These are protocol facts, not identifiers for an individual printer.
+     * They are useful in support reports even when the transport cannot expose
+     * its complete discovered-service list after connection.
+     */
+    public getActiveDriverServiceUuids(): readonly string[] {
+        return this.activeDriver?.connectionRequirements.services ?? [];
+    }
+
+    /**
      * Read the connected printer's state, or `null` if this driver cannot ask.
      *
      * `null` rather than an empty status, so a caller can tell "this printer
@@ -392,8 +402,8 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
     /**
      * Probes an unknown or ambiguous connected device to discover its advertised
      * name, transport type, and GATT primary service UUIDs. Compares observations
-     * against registered printer drivers, ranks candidates, and builds a preformatted
-     * diagnostic report ready for developer escalation.
+     * against registered printer drivers and ranks candidates. Presentation and
+     * report formatting belong to the caller so Core remains UI-agnostic.
      */
     public async diagnoseDevice(transport: IDeviceTransport): Promise<DeviceDiagnostic> {
         if (!transport.isConnected()) {
@@ -480,36 +490,12 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
 
         const suggestedDriver = candidates.length > 0 ? candidates[0].driverName : undefined;
 
-        const reportLines: string[] = [
-            '### OpenTLP Hardware Diagnostic Report',
-            '',
-            `- **Device Name**: \`${deviceName || 'Unknown / Unreported'}\``,
-            `- **Transport**: \`${transportType}\``,
-            `- **Discovered Services**: ${discoveredServices.length > 0 ? discoveredServices.map(s => `\`${s}\``).join(', ') : 'None reported / Not available'}`,
-            '',
-            '#### Candidate Drivers',
-        ];
-
-        if (candidates.length === 0) {
-            reportLines.push('- No standard driver matched by advertised name or primary services.');
-        } else {
-            for (const c of candidates) {
-                reportLines.push(`- **${c.driverName}** (matched by: ${c.matchedBy})`);
-                for (const r of c.reasons) {
-                    reportLines.push(`  - ${r}`);
-                }
-            }
-        }
-
-        const markdownReport = reportLines.join('\n');
-
         return {
             deviceName,
             transportType,
             discoveredServices,
             candidates,
-            suggestedDriver,
-            markdownReport
+            suggestedDriver
         };
     }
 

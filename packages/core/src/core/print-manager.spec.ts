@@ -248,6 +248,7 @@ describe('PrintManager', () => {
         expect(connectedEvent).toHaveBeenCalled();
         const boundDriver = connectedEvent.mock.calls[0][0];
         expect(boundDriver.name).toBe('Marklife-Protocol-0x1F');
+        expect(printManager.getActiveDriverServiceUuids()).toContain('0000ff00-0000-1000-8000-00805f9b34fb');
     });
 
     it('falls back to driver matching selected modelId for generic serial ports without device name', async () => {
@@ -299,7 +300,6 @@ describe('PrintManager', () => {
         const candidateNames = diagnostic.candidates.map(c => c.driverName);
         expect(candidateNames).toContain('Marklife-Protocol-0x1F');
         expect(candidateNames).toContain('Phomemo P12/A30');
-        expect(diagnostic.markdownReport).toContain('OpenTLP Hardware Diagnostic Report');
-        expect(diagnostic.markdownReport).toContain('P12_B123');
+        expect(diagnostic.suggestedDriver).toBe('Marklife-Protocol-0x1F');
     });
 });

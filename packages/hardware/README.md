@@ -27,6 +27,21 @@ The relationship is one-way: an explicit driver link must resolve, while a
 hardware record does not need a driver. Unlinked legacy driver profiles are
 reported and can be associated gradually.
 
+## Successful-print evidence
+
+Studio success reports include a versioned machine-readable marker containing
+the same hardware, driver, exact transport, runtime, OS, paper type, resolution
+and media-width facts visible in the issue draft. The Pages build aggregates
+those public issues into `studio/print-evidence.json`.
+
+Counts are per exact combination and per unique GitHub account: repeated reports
+from one account do not inflate confidence. Bot, `invalid` and `spam` issues are
+ignored, and the published index contains counts only—no usernames or issue
+text. Studio stops asking for another success confirmation at three independent
+reports for a combination; problem reporting is never suppressed. The separate
+Table of Hardware website can consume the same JSON endpoint to show the matrix
+or roll it up by hardware model.
+
 ## Licence
 
 Device and protocol data is CC0-1.0. Validation and export code is MIT. Linked

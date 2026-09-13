@@ -26,6 +26,7 @@
     import type { PrinterSession } from '../printer/session';
     import type { TransportOption } from '../printer/transports';
     import type { EditorStore } from '../stores/editor.svelte';
+    import type { DiagnosticReportContext } from '../reporting/report';
     import PrinterModelPicker from './PrinterModelPicker.svelte';
     import ConnectPanel from './ConnectPanel.svelte';
     import PaperPanel from './PaperPanel.svelte';
@@ -35,8 +36,9 @@
         transports: TransportOption[];
         editor: EditorStore;
         onclose: () => void;
+        onreportmissing?: (context?: DiagnosticReportContext) => void;
     }
-    let { session, transports, editor, onclose }: Props = $props();
+    let { session, transports, editor, onclose, onreportmissing }: Props = $props();
 
     // svelte-ignore state_referenced_locally -- session identity is stable.
     const printer = fromStore(session);
@@ -61,6 +63,11 @@
         settings.onboarded = true;
         settings.save();
         onclose();
+    }
+
+    function reportMissing(context?: DiagnosticReportContext): void {
+        finish();
+        onreportmissing?.(context);
     }
 
     function setSkin(skin: SkinOption): void { settings.skin = skin; settings.save(); }
@@ -121,27 +128,24 @@
             {:else if step === 'printer'}
                 <h2>Your printer</h2>
                 <p class="lede">
-                    Two ways to do this: connect the printer in front of you, or pick the model
-                    from the list. Connecting reads the machine's real capabilities; picking just
-                    tells the app what sizes and limits to design against.
+                    Pick the exact model first, then connect it. This lets Studio select the
+                    correct protocol and read the machine's real capabilities safely.
                 </p>
 
                 <section class="path">
                     <div class="path-head">
-                        <strong>Connect a real printer</strong>
-                        <small>Turn it on and put it in range, then choose how to reach it.</small>
-                    </div>
-                    <ConnectPanel {session} {transports} showModelBar={false} />
-                </section>
-
-                <div class="or"><span>or</span></div>
-
-                <section class="path">
-                    <div class="path-head">
-                        <strong>Pick the model</strong>
-                        <small>Used whenever no printer is connected, so you can design without hardware.</small>
+                        <strong>1. Choose your model</strong>
+                        <small>If it is missing or you are unsure, choose Unknown / Not in list instead of guessing.</small>
                     </div>
                     <PrinterModelPicker selectedId={settings.defaultPrinter} onselect={choosePrinter} />
+                </section>
+
+                <section class="path second-path">
+                    <div class="path-head">
+                        <strong>2. Connect the printer</strong>
+                        <small>Turn it on and put it in range, then choose how to reach it.</small>
+                    </div>
+                    <ConnectPanel {session} {transports} showModelBar={false} onreportmissing={reportMissing} />
                 </section>
 
             {:else if step === 'paper'}
@@ -296,26 +300,12 @@
     .seg-btn:last-child { border-right: none; }
     .seg-btn.on { background: var(--accent); color: #fff; }
 
-    /* The two setup paths receive equal, labelled emphasis. */
+    /* Model first, connection second: protocol selection is safety-critical. */
     .path { display: flex; flex-direction: column; gap: 10px; }
+    .second-path { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
     .path-head { display: flex; flex-direction: column; gap: 2px; }
     .path-head strong { font-size: 14px; }
     .path-head small { color: var(--muted); font-size: 12px; }
-
-    .or {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin: 16px 0;
-        color: var(--muted);
-        font-size: 12px;
-    }
-    .or::before, .or::after {
-        content: '';
-        flex: 1;
-        height: 1px;
-        background: var(--border);
-    }
 
     .summary { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
     .summary li {

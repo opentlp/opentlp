@@ -8,14 +8,25 @@
     import { DEFAULT_PAPER_PROFILES, type UniversalPrintOptions, type PaperProfile } from 'universal-label-core';
     import type { PrinterSession } from '../printer/session';
     import type { EditorStore } from '../stores/editor.svelte';
-    import { globalSettings as settings } from '../stores/settings.svelte';
+    import { globalSettings as settings, PRINTER_PROFILES } from '../stores/settings.svelte';
     import { rasterizeDesign, planInks, previewBinding } from 'universal-label-renderer';
+    import {
+        collectCoarseEnvironment,
+        printEvidenceDimensions,
+        samePrintEvidenceDimensions,
+        type PrintEvidenceIndex,
+        type PrintReportContext,
+        type ReportKind
+    } from '../reporting/report';
+    import Icon from './Icon.svelte';
 
     interface Props {
         session: PrinterSession;
         editor: EditorStore;
+        runtime?: string;
+        onreport?: (kind: ReportKind, context: PrintReportContext) => void;
     }
-    let { session, editor }: Props = $props();
+    let { session, editor, runtime = 'web', onreport }: Props = $props();
 
     // svelte-ignore state_referenced_locally -- session identity is stable.
     const printer = fromStore(session);
@@ -35,6 +46,9 @@
     let printError = $state('');
     let printedOk = $state(false);
     let printing = $state(false);
+    let evidenceCount = $state(0);
+    let evidenceThreshold = $state(3);
+    const enoughEvidence = $derived(evidenceCount >= evidenceThreshold);
 
     // Reset stale print status when the design changes.
     $effect(() => {
@@ -108,6 +122,8 @@
     async function print(): Promise<void> {
         printError = '';
         printedOk = false;
+        evidenceCount = 0;
+        evidenceThreshold = 3;
         printing = true;
         try {
             const requestedCopies = Number.isFinite(copies)
@@ -131,10 +147,64 @@
                 await session.print(page, options);
             }
             printedOk = true;
+            void refreshEvidence(makeReportContext('sent'));
         } catch (err) {
             printError = err instanceof Error ? err.message : String(err);
         } finally {
             printing = false;
+        }
+    }
+
+    function makeReportContext(printResult: 'sent' | 'failed'): PrintReportContext {
+        const requestedCopies = Number.isFinite(copies)
+            ? Math.min(99, Math.max(1, Math.trunc(copies)))
+            : 1;
+        return {
+            pageWidthPx: editor.design.widthPx,
+            pageHeightPx: editor.design.heightPx,
+            pageWidthMm: editor.design.widthPx / editor.pxPerMm,
+            pageHeightMm: editor.design.heightPx / editor.pxPerMm,
+            mediaWidthMm: activePaper.tapeWidthMm,
+            paperType: activePaper.type,
+            printDensity: density,
+            printCopies: requestedCopies,
+            ...(caps?.supportsSpeedMode ? { printSpeed: speed } : {}),
+            printResult
+        };
+    }
+
+    function report(kind: ReportKind): void {
+        onreport?.(kind, makeReportContext(printError ? 'failed' : 'sent'));
+    }
+
+    async function refreshEvidence(context: PrintReportContext): Promise<void> {
+        const profile = PRINTER_PROFILES.find(item => item.id === settings.defaultPrinter);
+        const dimensions = printEvidenceDimensions({
+            hardwareId: profile?.tohId ?? profile?.id,
+            profileId: profile?.id,
+            driverName: snap.driverName,
+            transportKind: snap.transportKind,
+            transportType: snap.transportType,
+            runtime,
+            osFamily: collectCoarseEnvironment().osFamily,
+            paperType: context.paperType,
+            dpmm: snap.capabilities?.dpmm,
+            mediaWidthMm: context.mediaWidthMm
+        });
+        if (!dimensions || typeof document === 'undefined') return;
+        try {
+            const response = await fetch(new URL('print-evidence.json', document.baseURI), { cache: 'no-cache' });
+            if (!response.ok) return;
+            const index = await response.json() as PrintEvidenceIndex;
+            if (index.schemaVersion !== 1 || !Array.isArray(index.combinations)) return;
+            evidenceThreshold = Number.isFinite(index.threshold) && index.threshold > 0 ? index.threshold : 3;
+            const match = index.combinations.find(item => item?.dimensions && samePrintEvidenceDimensions(item.dimensions, dimensions));
+            const confirmations = match?.confirmations;
+            evidenceCount = typeof confirmations === 'number' && Number.isFinite(confirmations)
+                ? Math.max(0, confirmations)
+                : 0;
+        } catch {
+            // Offline, desktop and older deployments keep the confirmation action.
         }
     }
 </script>
@@ -246,8 +316,27 @@
         </button>
         {#if printError}
             <div class="error">{printError}</div>
+            {#if onreport}
+                <button type="button" class="report-link" onclick={() => report('print-problem')}>
+                    <Icon name="flag" size={14} /> Report this printing problem
+                </button>
+            {/if}
         {:else if printedOk}
-            <div class="ok">Sent to printer.</div>
+            <div class="ok">
+                Sent to printer.{enoughEvidence ? ` This exact setup already has ${evidenceCount} independent ToH confirmations.` : ''}
+            </div>
+            {#if onreport}
+                <div class="report-actions">
+                    {#if !enoughEvidence}
+                        <button type="button" class="report-link" onclick={() => report('print-success')}>
+                            <Icon name="check" size={14} /> Confirm it printed correctly for the ToH
+                        </button>
+                    {/if}
+                    <button type="button" class="report-link" onclick={() => report('print-problem')}>
+                        <Icon name="flag" size={14} /> Report incorrect output
+                    </button>
+                </div>
+            {/if}
         {/if}
     {/if}
 </div>
@@ -329,6 +418,29 @@
     .ok {
         color: var(--ok);
         font-size: 13px;
+    }
+    .report-actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    .report-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        width: fit-content;
+        padding: 3px 0;
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        font-size: 12px;
+        cursor: pointer;
+        box-shadow: none;
+    }
+    .report-link:hover {
+        color: var(--accent);
+        transform: none;
+        box-shadow: none;
     }
     .advanced {
         border-top: 1px solid var(--border);

@@ -2,8 +2,14 @@
     import { globalSettings as settings, type SkinOption } from '../stores/settings.svelte';
     import PrinterModelPicker from './PrinterModelPicker.svelte';
     import Icon from './Icon.svelte';
+    import type { ReportKind } from '../reporting/report';
 
-    type Category = 'appearance' | 'printer' | 'setup';
+    interface Props {
+        onreport?: (kind: ReportKind) => void;
+    }
+    let { onreport }: Props = $props();
+
+    type Category = 'appearance' | 'printer' | 'setup' | 'support';
     let category = $state<Category>('appearance');
 
     function updateTheme(theme: 'system' | 'light' | 'dark') {
@@ -58,6 +64,16 @@
         >
             <Icon name="settings" size={16} />
             <span>Setup</span>
+        </button>
+        <button
+            type="button"
+            class="cat-btn"
+            class:active={category === 'support'}
+            aria-current={category === 'support' ? 'page' : undefined}
+            onclick={() => (category = 'support')}
+        >
+            <Icon name="flag" size={16} />
+            <span>Help &amp; feedback</span>
         </button>
     </nav>
 
@@ -144,6 +160,25 @@
                 <button type="button" class="replay-btn" onclick={() => settings.replayOnboarding()}>
                     <Icon name="printer" size={15} /> Replay setup
                 </button>
+            </section>
+        {:else if category === 'support'}
+            <section>
+                <h3>Help improve printer support</h3>
+                <p class="desc">Create a guided GitHub report with privacy-safe technical context from Studio.</p>
+                <div class="report-options">
+                    <button type="button" onclick={() => onreport?.('missing-printer')}>
+                        <Icon name="plus" size={16} />
+                        <span><strong>Missing printer</strong><small>Request support for a model that is not listed or will not connect.</small></span>
+                    </button>
+                    <button type="button" onclick={() => onreport?.('print-success')}>
+                        <Icon name="check" size={16} />
+                        <span><strong>Print worked</strong><small>Confirm that a printer, connection method, and driver work together.</small></span>
+                    </button>
+                    <button type="button" onclick={() => onreport?.('print-problem')}>
+                        <Icon name="flag" size={16} />
+                        <span><strong>Print problem</strong><small>Report incorrect output, feeding, quality, or a failed print.</small></span>
+                    </button>
+                </div>
             </section>
         {/if}
     </div>
@@ -330,6 +365,44 @@
         color: var(--accent);
         transform: none;
         box-shadow: none;
+    }
+    .report-options {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .report-options button {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        width: 100%;
+        padding: 11px 12px;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        background: var(--panel);
+        color: var(--text);
+        text-align: left;
+        cursor: pointer;
+        box-shadow: none;
+    }
+    .report-options button:hover {
+        border-color: var(--accent);
+        transform: none;
+        box-shadow: none;
+    }
+    .report-options button :global(.icon) {
+        margin-top: 2px;
+        color: var(--accent);
+    }
+    .report-options button span {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .report-options small {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.4;
     }
 
     @media (max-width: 640px) {

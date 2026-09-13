@@ -46,7 +46,7 @@ describe('PrinterSession', () => {
         expect(diag.transportType).toBe('Bluetooth');
         expect(diag.candidates.length).toBeGreaterThan(0);
         expect(diag.candidates.some(c => c.driverName === 'Marklife-Protocol-0x1F')).toBe(true);
-        expect(diag.markdownReport).toContain('OpenTLP Hardware Diagnostic Report');
+        expect(diag.suggestedDriver).toBe('Marklife-Protocol-0x1F');
     });
 
     it('connects with an already established transport via connectWithTransport', async () => {
@@ -54,10 +54,15 @@ describe('PrinterSession', () => {
         const transport = new MockTransport('P12_B8F0', ['0000ff00-0000-1000-8000-00805f9b34fb']);
         await transport.connect();
 
-        await session.connectWithTransport(transport, 'Marklife-Protocol-0x1F', 'marklife_p12');
+        await session.connectWithTransport(transport, 'Marklife-Protocol-0x1F', 'marklife_p12', 'web-bluetooth');
         expect(session.current.state).toBe('connected');
         expect(session.current.deviceName).toBe('P12_B8F0');
+        expect(session.current.transportKind).toBe('web-bluetooth');
+        expect(session.current.transportType).toBe('Bluetooth');
+        expect(session.current.driverName).toBe('Marklife-Protocol-0x1F');
         expect(session.current.capabilities?.driverName).toBe('Marklife (Protocol 0x1F)');
+        expect(session.current.serviceUuids).toContain('0000ff00-0000-1000-8000-00805f9b34fb');
+        expect(session.getDiagnosticLog().join('\n')).toContain('connection established');
 
         await session.disconnect();
         expect(session.current.state).toBe('disconnected');

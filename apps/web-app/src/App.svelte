@@ -130,6 +130,8 @@
     {transports}
     extraTabs={[{ id: 'hardware', label: 'Hardware', content: hardwareTab, fullBleed: true }]}
     title="OpenTLP Studio"
+    reportBuild={import.meta.env.VITE_COMMIT_SHA?.slice(0, 12) ?? 'development'}
+    reportRuntime={isNative ? `capacitor-${Capacitor.getPlatform()}` : 'web'}
 />
 
 <a class="privacy-link" href={privacyUrl}>Privacy</a>

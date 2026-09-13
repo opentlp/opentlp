@@ -57,6 +57,8 @@
     import { artworkForDevice } from '../data/artwork';
     import PaperPreview from './PaperPreview.svelte';
     import { loadedMediaIdentityKey, resolveLoadedPaper } from '../printer/media-paper';
+    import ReportPanel from './ReportPanel.svelte';
+    import type { DiagnosticReportContext, PrintReportContext, ReportKind } from '../reporting/report';
 
     export interface ExtraTab {
         id: string;
@@ -80,8 +82,20 @@
         extraTabs?: ExtraTab[];
         /** Shown in the header, e.g. "BleWebler2" / "BleWebler2 Desktop". */
         title?: string;
+        /** Public build identifier included in privacy-safe support reports. */
+        reportBuild?: string;
+        /** Coarse shell name included in reports, such as web, capacitor, or desktop. */
+        reportRuntime?: string;
     }
-    let { editor, session, transports, extraTabs = [], title = 'BleWebler2' }: Props = $props();
+    let {
+        editor,
+        session,
+        transports,
+        extraTabs = [],
+        title = 'BleWebler2',
+        reportBuild = 'development',
+        reportRuntime = 'web'
+    }: Props = $props();
 
     // svelte-ignore state_referenced_locally -- both stores keep a stable
     // identity for the app lifetime; capturing the initial value is intended.
@@ -189,7 +203,37 @@
     }
 
     /** App-level bottom sheets. */
-    let sheet = $state<'printer' | 'settings' | 'paper' | 'tools' | 'params' | 'design-options' | null>(null);
+    let sheet = $state<'printer' | 'settings' | 'report' | 'paper' | 'tools' | 'params' | 'design-options' | null>(null);
+    let reportKind = $state<ReportKind>('missing-printer');
+    let printReportContext = $state<PrintReportContext | undefined>();
+    let diagnosticReportContext = $state<DiagnosticReportContext | undefined>();
+
+    function openGenericReport(kind: ReportKind): void {
+        reportKind = kind;
+        printReportContext = undefined;
+        diagnosticReportContext = undefined;
+        sheet = 'report';
+    }
+
+    function openPrintReport(kind: ReportKind, context: PrintReportContext): void {
+        reportKind = kind;
+        printReportContext = context;
+        diagnosticReportContext = undefined;
+        sheet = 'report';
+    }
+
+    function openMissingPrinterReport(context?: DiagnosticReportContext): void {
+        reportKind = 'missing-printer';
+        printReportContext = undefined;
+        diagnosticReportContext = context;
+        sheet = 'report';
+    }
+
+    function changeReportKind(kind: ReportKind): void {
+        reportKind = kind;
+        if (kind === 'missing-printer') printReportContext = undefined;
+        else diagnosticReportContext = undefined;
+    }
     const editorCommands = untrack(() => createEditorCommands(editor, {
         print: () => (view = 'print'),
         settings: () => (sheet = 'settings')
@@ -1002,13 +1046,13 @@
                 <section class="print-section">
                     <h2>Printer</h2>
                     <div class="print-frame">
-                        <ConnectPanel {session} {transports} />
+                        <ConnectPanel {session} {transports} onreportmissing={openMissingPrinterReport} />
                     </div>
                 </section>
                 <section class="print-section">
                     <h2>Print options</h2>
                     <div class="print-frame">
-                        <PrintPanel {session} {editor} />
+                    <PrintPanel {session} {editor} runtime={reportRuntime} onreport={openPrintReport} />
                     </div>
                 </section>
             </div>
@@ -1021,7 +1065,13 @@
 <!-- First run. Sits above everything but blocks nothing: skipping lands you in
      exactly the app you would have got anyway. -->
 {#if !settings.onboarded}
-    <Onboarding {session} {transports} {editor} onclose={() => { /* settings.onboarded is already set */ }} />
+    <Onboarding
+        {session}
+        {transports}
+        {editor}
+        onclose={() => { /* settings.onboarded is already set */ }}
+        onreportmissing={openMissingPrinterReport}
+    />
 {/if}
 
 {#if sheet === 'design-options'}
@@ -1039,7 +1089,7 @@
     </Sheet>
 {:else if sheet === 'printer'}
     <Sheet title="Printer" onclose={() => (sheet = null)}>
-        <ConnectPanel {session} {transports} />
+        <ConnectPanel {session} {transports} onreportmissing={openMissingPrinterReport} />
     </Sheet>
 {:else if sheet === 'tools'}
     <Sheet title="Label tools" onclose={() => (sheet = null)}>
@@ -1050,7 +1100,19 @@
     </Sheet>
 {:else if sheet === 'settings'}
     <Sheet title="Settings" wide stable onclose={() => (sheet = null)}>
-        <SettingsPanel />
+        <SettingsPanel onreport={openGenericReport} />
+    </Sheet>
+{:else if sheet === 'report'}
+    <Sheet title="Report to OpenTLP" wide stable onclose={() => (sheet = null)}>
+        <ReportPanel
+            kind={reportKind}
+            {session}
+            build={reportBuild}
+            runtime={reportRuntime}
+            printContext={printReportContext}
+            diagnosticContext={diagnosticReportContext}
+            onkindchange={changeReportKind}
+        />
     </Sheet>
 {:else if sheet === 'paper'}
     <Sheet title="Paper Setup" onclose={() => (sheet = null)}>
