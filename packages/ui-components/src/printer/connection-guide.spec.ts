@@ -27,30 +27,13 @@ describe('connection-guide', () => {
             expect(mac.osName).toBe('macOS');
         });
 
-        it('detects Firefox from userAgent and sets Web Bluetooth as unsupported', () => {
-            const ff = detectPlatform('Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0');
-            expect(ff.browser).toBe('firefox');
-            expect(ff.browserName).toBe('Firefox');
-            expect(ff.supportsWebBluetooth).toBe(false);
-        });
-
-        it('detects Safari from userAgent and sets Web Bluetooth as unsupported', () => {
-            const safari = detectPlatform('Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15');
-            expect(safari.browser).toBe('safari');
-            expect(safari.browserName).toBe('Safari');
-            expect(safari.supportsWebBluetooth).toBe(false);
-        });
-
-        it('detects Edge and Chrome from userAgent', () => {
-            const edge = detectPlatform('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 Edg/128.0.0.0');
-            expect(edge.browser).toBe('edge');
-            expect(edge.browserName).toBe('Microsoft Edge');
-            expect(edge.supportsWebBluetooth).toBe(true);
-
-            const chrome = detectPlatform('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36');
-            expect(chrome.browser).toBe('chrome');
-            expect(chrome.browserName).toBe('Google Chrome');
-            expect(chrome.supportsWebBluetooth).toBe(true);
+        it('supports capabilitiesOverride for testing and SSR', () => {
+            const overridden = detectPlatform(undefined, {
+                supportsWebBluetooth: false,
+                supportsWebSerial: true
+            });
+            expect(overridden.supportsWebBluetooth).toBe(false);
+            expect(overridden.supportsWebSerial).toBe(true);
         });
     });
 
@@ -59,8 +42,6 @@ describe('connection-guide', () => {
             os: 'linux',
             osName: 'Linux',
             environment: 'electron',
-            browser: 'chrome',
-            browserName: 'Google Chrome',
             isSecure: true,
             supportsWebBluetooth: true,
             supportsWebSerial: true,
@@ -71,20 +52,16 @@ describe('connection-guide', () => {
             os: 'windows',
             osName: 'Windows',
             environment: 'electron',
-            browser: 'chrome',
-            browserName: 'Google Chrome',
             isSecure: true,
             supportsWebBluetooth: true,
             supportsWebSerial: true,
             supportsWebUsb: true
         };
 
-        const firefoxWindowsPlatform: PlatformInfo = {
+        const noBtWindowsPlatform: PlatformInfo = {
             os: 'windows',
             osName: 'Windows',
             environment: 'browser',
-            browser: 'firefox',
-            browserName: 'Firefox',
             isSecure: true,
             supportsWebBluetooth: false,
             supportsWebSerial: false,
@@ -186,15 +163,15 @@ describe('connection-guide', () => {
             expect(genericGuide.steps?.some(s => s.includes('_BLE'))).toBe(false);
         });
 
-        it('marks Web Bluetooth as discouraged in Firefox and recommends Serial instead', () => {
-            const bleGuide = getTransportGuidance('bluetooth', firefoxWindowsPlatform, 'marklife_p12');
+        it('marks Web Bluetooth as discouraged when unsupported and recommends Serial instead', () => {
+            const bleGuide = getTransportGuidance('bluetooth', noBtWindowsPlatform, 'marklife_p12');
             expect(bleGuide.tier).toBe('discouraged');
-            expect(bleGuide.badge).toContain('Unsupported in Firefox');
-            expect(bleGuide.discouragedReason).toContain('Firefox');
+            expect(bleGuide.badge).toContain('Unsupported in this browser');
+            expect(bleGuide.discouragedReason).toContain('not supported');
 
-            const serialGuide = getTransportGuidance('serial', firefoxWindowsPlatform, 'marklife_p12');
+            const serialGuide = getTransportGuidance('serial', noBtWindowsPlatform, 'marklife_p12');
             expect(serialGuide.tier).toBe('recommended');
-            expect(serialGuide.badge).toContain('Recommended in Firefox');
+            expect(serialGuide.badge).toBe('Recommended');
         });
     });
 });

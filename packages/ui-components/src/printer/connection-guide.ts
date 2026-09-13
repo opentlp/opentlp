@@ -10,15 +10,12 @@ import { PrintManager, type PrinterModelProfile } from 'universal-label-core';
 
 export type OSKind = 'linux' | 'windows' | 'macos' | 'android' | 'ios' | 'unknown';
 export type EnvironmentKind = 'electron' | 'browser' | 'capacitor';
-export type BrowserKind = 'chrome' | 'firefox' | 'safari' | 'edge' | 'opera' | 'unknown';
 export type GuidanceTier = 'recommended' | 'alternative' | 'discouraged';
 
 export interface PlatformInfo {
     os: OSKind;
     osName: string;
     environment: EnvironmentKind;
-    browser: BrowserKind;
-    browserName: string;
     isSecure: boolean;
     supportsWebBluetooth: boolean;
     supportsWebSerial: boolean;
@@ -36,9 +33,12 @@ export interface TransportGuidance {
 }
 
 /**
- * Detect the current operating system, browser, and runtime environment.
+ * Detect the current operating system, runtime environment, and Web API capabilities.
  */
-export function detectPlatform(userAgentOverride?: string): PlatformInfo {
+export function detectPlatform(
+    userAgentOverride?: string,
+    capabilitiesOverride?: Partial<Pick<PlatformInfo, 'supportsWebBluetooth' | 'supportsWebSerial' | 'supportsWebUsb'>>
+): PlatformInfo {
     const ua = userAgentOverride ?? (typeof navigator !== 'undefined' ? navigator.userAgent : '');
     const isElectron = typeof window !== 'undefined' && (
         'electronAPI' in window || (window as unknown as { process?: { versions?: { electron?: string } } })?.process?.versions?.electron !== undefined
@@ -73,54 +73,30 @@ export function detectPlatform(userAgentOverride?: string): PlatformInfo {
         osName = 'Linux';
     }
 
-    let browser: BrowserKind = 'unknown';
-    let browserName = 'Browser';
-
-    if (/Edg\//i.test(ua)) {
-        browser = 'edge';
-        browserName = 'Microsoft Edge';
-    } else if (/OPR\/|Opera/i.test(ua)) {
-        browser = 'opera';
-        browserName = 'Opera';
-    } else if (/Firefox\//i.test(ua)) {
-        browser = 'firefox';
-        browserName = 'Firefox';
-    } else if (/Safari/i.test(ua) && !/Chrome|Chromium|CriOS|Edg|OPR/i.test(ua)) {
-        browser = 'safari';
-        browserName = 'Safari';
-    } else if (/Chrome|Chromium|CriOS/i.test(ua)) {
-        browser = 'chrome';
-        browserName = 'Google Chrome';
-    }
-
     const isSecure = typeof window !== 'undefined' ? Boolean(window.isSecureContext) : true;
 
-    let supportsWebBluetooth = false;
-    let supportsWebSerial = false;
-    let supportsWebUsb = false;
+    // Pure feature detection
+    let supportsWebBluetooth = environment === 'capacitor' || environment === 'electron'
+        ? true
+        : typeof navigator !== 'undefined' && 'bluetooth' in navigator && isSecure;
 
-    if (environment === 'electron') {
-        supportsWebBluetooth = true;
-        supportsWebSerial = true;
-        supportsWebUsb = true;
-    } else if (environment === 'capacitor') {
-        supportsWebBluetooth = true;
-        supportsWebSerial = false;
-        supportsWebUsb = false;
-    } else if (!userAgentOverride && typeof navigator !== 'undefined') {
-        supportsWebBluetooth = 'bluetooth' in navigator && isSecure;
-        supportsWebSerial = 'serial' in navigator && isSecure;
-        supportsWebUsb = 'usb' in navigator && isSecure;
-    } else {
-        // Fallback / mock detection when userAgentOverride is specified
-        if (browser === 'firefox' || browser === 'safari') {
-            supportsWebBluetooth = false;
-            supportsWebSerial = false;
-            supportsWebUsb = false;
-        } else if (browser === 'chrome' || browser === 'edge' || browser === 'opera') {
-            supportsWebBluetooth = os !== 'ios';
-            supportsWebSerial = os !== 'ios' && os !== 'android';
-            supportsWebUsb = os !== 'ios';
+    let supportsWebSerial = environment === 'electron'
+        ? true
+        : typeof navigator !== 'undefined' && 'serial' in navigator && isSecure;
+
+    let supportsWebUsb = environment === 'electron'
+        ? true
+        : typeof navigator !== 'undefined' && 'usb' in navigator && isSecure;
+
+    if (capabilitiesOverride) {
+        if (capabilitiesOverride.supportsWebBluetooth !== undefined) {
+            supportsWebBluetooth = capabilitiesOverride.supportsWebBluetooth;
+        }
+        if (capabilitiesOverride.supportsWebSerial !== undefined) {
+            supportsWebSerial = capabilitiesOverride.supportsWebSerial;
+        }
+        if (capabilitiesOverride.supportsWebUsb !== undefined) {
+            supportsWebUsb = capabilitiesOverride.supportsWebUsb;
         }
     }
 
@@ -128,8 +104,6 @@ export function detectPlatform(userAgentOverride?: string): PlatformInfo {
         os,
         osName,
         environment,
-        browser,
-        browserName,
         isSecure,
         supportsWebBluetooth,
         supportsWebSerial,
@@ -222,14 +196,13 @@ export function getTransportGuidance(
 
     // 2. BLUETOOTH BLE (Direct Web Bluetooth / Capacitor BLE)
     if (isBle) {
-        // Browser does not support Web Bluetooth (e.g. Firefox, Safari)
+        // Browser / runtime environment does not support Web Bluetooth
         if (platform.environment === 'browser' && (!platform.supportsWebBluetooth || isAvailable === false)) {
-            const browserLabel = platform.browser !== 'unknown' ? platform.browserName : 'your browser';
             return {
                 tier: 'discouraged',
-                badge: platform.browser !== 'unknown' ? `Unsupported in ${platform.browserName}` : 'Unavailable',
-                discouragedReason: `Web Bluetooth is not supported in ${browserLabel}. Use Serial (USB & Bluetooth) or switch to a Chromium-based browser like Google Chrome or Microsoft Edge.`,
-                warning: `Web Bluetooth is unavailable in ${browserLabel}. Please use Serial (USB & Bluetooth) or open this page in Chrome or Edge.`
+                badge: 'Unsupported in this browser',
+                discouragedReason: 'Web Bluetooth is not supported in this browser. Use Serial (USB & Bluetooth) or switch to a Chromium-based browser like Chrome or Edge.',
+                warning: 'Web Bluetooth is unavailable in this browser. Please use Serial (USB & Bluetooth) or open this page in Chrome or Edge.'
             };
         }
 
@@ -266,7 +239,7 @@ export function getTransportGuidance(
         const badge = platform.os === 'linux'
             ? 'Recommended on Linux'
             : isBleUnsupportedInBrowser
-            ? (platform.browser !== 'unknown' ? `Recommended in ${platform.browserName}` : 'Recommended')
+            ? 'Recommended'
             : 'USB Cable / Bluetooth Serial';
 
         const usbHint = platform.os === 'linux'
@@ -305,11 +278,10 @@ export function getTransportGuidance(
     // 4. DIRECT USB (WebUSB / Vendor USB)
     if (isUsb) {
         if (platform.environment === 'browser' && (!platform.supportsWebUsb || isAvailable === false)) {
-            const browserLabel = platform.browser !== 'unknown' ? platform.browserName : 'your browser';
             return {
                 tier: 'discouraged',
-                badge: platform.browser !== 'unknown' ? `Unsupported in ${platform.browserName}` : 'Unavailable',
-                discouragedReason: `Direct WebUSB is not supported in ${browserLabel}. If connecting via USB cable, use Serial (USB & Bluetooth) instead.`
+                badge: 'Unsupported in this browser',
+                discouragedReason: 'Direct WebUSB is not supported in this browser. If connecting via USB cable, use Serial (USB & Bluetooth) instead.'
             };
         }
 
