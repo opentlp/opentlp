@@ -98,10 +98,19 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
      * This allows the UI to build a "Default Printer" selection without needing a hardcoded registry.
      */
     getAvailablePrinterProfiles(): PrinterModelProfile[] {
-        const profiles = this.registeredDrivers.flatMap(driver => driver.supportedModels || []);
+        const seen = new Set<string>();
+        const uniqueProfiles: PrinterModelProfile[] = [];
+        for (const driver of this.registeredDrivers) {
+            for (const profile of driver.supportedModels || []) {
+                if (!seen.has(profile.id)) {
+                    seen.add(profile.id);
+                    uniqueProfiles.push(profile);
+                }
+            }
+        }
         
         // Sort alphabetically by brand, then model
-        return profiles.sort((a, b) => {
+        return uniqueProfiles.sort((a, b) => {
             if (a.brand !== b.brand) return a.brand.localeCompare(b.brand);
             return a.model.localeCompare(b.model);
         });

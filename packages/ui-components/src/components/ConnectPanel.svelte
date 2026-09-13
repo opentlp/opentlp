@@ -33,8 +33,9 @@
     interface Props {
         session: PrinterSession;
         transports: TransportOption[];
+        showModelBar?: boolean;
     }
-    let { session, transports }: Props = $props();
+    let { session, transports, showModelBar = true }: Props = $props();
 
     // svelte-ignore state_referenced_locally -- session identity is stable.
     const printer = fromStore(session);
@@ -45,17 +46,17 @@
     let busyId = $state<string | null>(null);
     let lastTransportId = $state<string | null>(null);
 
-    let selectedPrinterModel = $state(settings.defaultPrinter || 'marklife_p12');
     let isPickingPrinter = $state(false);
     const platform: PlatformInfo = detectPlatform();
     let allowedAnyway = $state<Record<string, boolean>>({});
+
+    const selectedPrinterModel = $derived(settings.defaultPrinter || '');
 
     const currentModelProfile = $derived(
         PRINTER_PROFILES.find(p => p.id === selectedPrinterModel)
     );
 
     function chooseModel(id: string): void {
-        selectedPrinterModel = id;
         settings.defaultPrinter = id;
         settings.save();
         isPickingPrinter = false;
@@ -135,38 +136,40 @@
 
 <div class="panel">
     {#if snap.state === 'disconnected' || snap.state === 'connecting'}
-        <!-- Printer Model Bar & Searchable Visual Picker -->
-        <div class="printer-model-bar">
-            <div class="model-summary">
-                <span class="model-icon"><Icon name="printer" size={20} /></span>
-                <div class="model-info">
-                    <span class="model-label">Your printer model</span>
-                    <strong class="model-name">
-                        {#if currentModelProfile}
-                            {currentModelProfile.rebadgeOnly ? `${currentModelProfile.brand}-compatible` : currentModelProfile.brand} {currentModelProfile.model}
-                        {:else}
-                            Automatic / Not configured
-                        {/if}
-                    </strong>
+        {#if showModelBar}
+            <!-- Printer Model Bar & Searchable Visual Picker -->
+            <div class="printer-model-bar">
+                <div class="model-summary">
+                    <span class="model-icon"><Icon name="printer" size={20} /></span>
+                    <div class="model-info">
+                        <span class="model-label">Your printer model</span>
+                        <strong class="model-name">
+                            {#if currentModelProfile}
+                                {currentModelProfile.rebadgeOnly ? `${currentModelProfile.brand}-compatible` : currentModelProfile.brand} {currentModelProfile.model}
+                            {:else}
+                                Automatic / Not configured
+                            {/if}
+                        </strong>
+                    </div>
                 </div>
+                <button
+                    type="button"
+                    class="ghost toggle-picker-btn"
+                    onclick={() => (isPickingPrinter = !isPickingPrinter)}
+                    disabled={snap.state === 'connecting'}
+                >
+                    {isPickingPrinter ? 'Done' : 'Change model'}
+                </button>
             </div>
-            <button
-                type="button"
-                class="ghost toggle-picker-btn"
-                onclick={() => (isPickingPrinter = !isPickingPrinter)}
-                disabled={snap.state === 'connecting'}
-            >
-                {isPickingPrinter ? 'Done' : 'Change model'}
-            </button>
-        </div>
 
-        {#if isPickingPrinter}
-            <div class="picker-dropdown-panel">
-                <PrinterModelPicker
-                    selectedId={selectedPrinterModel}
-                    onselect={chooseModel}
-                />
-            </div>
+            {#if isPickingPrinter}
+                <div class="picker-dropdown-panel">
+                    <PrinterModelPicker
+                        selectedId={selectedPrinterModel}
+                        onselect={chooseModel}
+                    />
+                </div>
+            {/if}
         {/if}
 
         <details class="advanced-protocol">

@@ -21,12 +21,20 @@
 
     const isNone = $derived(!selectedId || selectedId === 'none');
 
-    const profileEntries = $derived(
-        PRINTER_PROFILES.map((p) => ({
-            profile: p,
-            opentlp: matchOpenTlpDevice(p),
-        }))
-    );
+    const profileEntries = $derived.by(() => {
+        const seen = new Set<string>();
+        const list: Array<{ profile: (typeof PRINTER_PROFILES)[number]; opentlp: ReturnType<typeof matchOpenTlpDevice> }> = [];
+        for (const p of PRINTER_PROFILES) {
+            if (!seen.has(p.id)) {
+                seen.add(p.id);
+                list.push({
+                    profile: p,
+                    opentlp: matchOpenTlpDevice(p),
+                });
+            }
+        }
+        return list;
+    });
 
     const filteredProfiles = $derived.by(() => {
         const q = searchQuery.trim().toLowerCase();

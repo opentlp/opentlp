@@ -131,7 +131,7 @@
                         <strong>Connect a real printer</strong>
                         <small>Turn it on and put it in range, then choose how to reach it.</small>
                     </div>
-                    <ConnectPanel {session} {transports} />
+                    <ConnectPanel {session} {transports} showModelBar={false} />
                 </section>
 
                 <div class="or"><span>or</span></div>

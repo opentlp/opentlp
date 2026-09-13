@@ -80,12 +80,17 @@ export function getTransportGuidance(
     const id = transportId.toLowerCase();
     const isBle = id.includes('ble') || id === 'bluetooth' || id === 'web-bluetooth';
     const isSerial = id.includes('serial') || id.includes('classic');
-    const isUsb = id === 'usb' || id === 'web-usb' || id === 'capacitor-usb';
+    const isUsb = (id.includes('usb') && !id.includes('serial')) || id === 'web-usb' || id === 'usb' || id === 'capacitor-usb';
     const isDummy = id === 'dummy';
 
     const normalizedModel = (printerModelId ?? '').toLowerCase();
     const isP12 = normalizedModel.includes('p12');
     const isL13 = normalizedModel.includes('l13');
+    const isMarklife = normalizedModel.startsWith('marklife_') || isP12 || isL13;
+    const isNiimbot = normalizedModel.startsWith('niimbot_') || normalizedModel.includes('d11') || normalizedModel.includes('b21');
+    const isPhomemo = normalizedModel.startsWith('phomemo_') || normalizedModel.includes('m110') || normalizedModel.includes('m02') || normalizedModel.includes('d30');
+    const isPeriPage = normalizedModel.startsWith('peripage_') || normalizedModel.includes('peripage') || normalizedModel.includes('a6');
+    const isCatPrinter = normalizedModel.startsWith('catprinter_') || normalizedModel.includes('catprinter');
 
     // 1. DUMMY / SIMULATOR
     if (isDummy) {
@@ -122,7 +127,11 @@ export function getTransportGuidance(
             tier: 'recommended',
             badge: 'Recommended',
             warning: 'Do NOT pair this printer in your OS Bluetooth menu! Direct Bluetooth only works when the device is not paired in OS settings.',
-            hints: 'Turn on your printer, click Connect, and select the device (often named ' + (isP12 ? 'P12_... or P12_..._BLE' : 'with your printer model or _BLE') + ') in the popup list.'
+            hints: isP12
+                ? 'Turn on your printer, click Connect, and select the device (e.g. P12_... or P12_..._BLE) in the popup list.'
+                : isNiimbot
+                ? 'Turn on your Niimbot, click Connect, and choose your printer in the popup list.'
+                : 'Turn on your printer, click Connect, and select your device in the popup list.'
         };
     }
 
@@ -141,8 +150,18 @@ export function getTransportGuidance(
             steps.push('Select your printer (e.g. "P12_..."). Do NOT select the entry ending in "_BLE".');
         } else if (isL13) {
             steps.push('Select the entry starting with "L13_" (do NOT select "L13_..._BLE").');
+        } else if (isNiimbot) {
+            steps.push('Select your Niimbot printer in the list (e.g. "D11_...", "B21_..."). Do NOT select the entry ending in "_BLE". (PIN is 0000 or 1234 if prompted).');
+        } else if (isPhomemo) {
+            steps.push('Select your Phomemo printer in the list (e.g. "M110", "M02"). Do NOT select the entry ending in "_BLE".');
+        } else if (isPeriPage) {
+            steps.push('Select your PeriPage printer in the list. Do NOT select the entry ending in "_BLE".');
+        } else if (isCatPrinter) {
+            steps.push('Select your printer in the list (often named "MX06", "GB01", "WalkPrint", or "Print_..."). Do NOT select the entry ending in "_BLE".');
+        } else if (isMarklife) {
+            steps.push('Select your Marklife printer in the list. Do NOT select the entry ending in "_BLE".');
         } else {
-            steps.push('Select your printer name. Do NOT select the entry ending in "_BLE".');
+            steps.push('Select your printer name in the list. If both a standard and a "_BLE" entry appear, select the standard one (do NOT select "_BLE").');
         }
 
         steps.push('Once paired in your operating system, return here, click Connect, and choose your paired printer from the list.');
@@ -159,14 +178,28 @@ export function getTransportGuidance(
 
     // 4. USB (WebUSB / USB-Serial)
     if (isUsb) {
+        if (platform.os === 'linux') {
+            return {
+                tier: 'discouraged',
+                badge: 'Not recommended on Linux',
+                discouragedReason: 'WebUSB on Linux is not recommended and typically fails to claim printer interfaces without custom udev rules. Use Serial instead.',
+                warning: 'Direct WebUSB on Linux often cannot claim printer interfaces or conflicts with system drivers. Serial / Bluetooth Classic is recommended.',
+                hints: 'Plug in via USB. (Ensure your user account has serial/USB permissions in group dialout).'
+            };
+        }
+
+        if (platform.os === 'windows') {
+            return {
+                tier: 'alternative',
+                badge: 'Direct USB',
+                hints: 'Plug in via USB. (WebUSB on Windows may require a one-time WinUSB driver setup with Zadig).'
+            };
+        }
+
         return {
             tier: 'recommended',
-            badge: 'Wired Connection',
-            hints: platform.os === 'windows'
-                ? 'Plug in via USB. (WebUSB on Windows may require a one-time WinUSB driver setup with Zadig).'
-                : platform.os === 'linux'
-                ? 'Plug in via USB. (Ensure your user account has serial/USB permissions in group dialout).'
-                : 'Plug in via USB cable and click Connect.'
+            badge: 'Direct USB',
+            hints: 'Plug in via USB cable and click Connect.'
         };
     }
 

@@ -80,5 +80,29 @@ describe('connection-guide', () => {
             expect(serialGuide.steps?.length).toBeGreaterThanOrEqual(3);
             expect(serialGuide.steps?.some(s => s.includes('Linux Bluetooth settings'))).toBe(true);
         });
+
+        it('discourages USB on Linux with explicit warning and advice to use Serial', () => {
+            const usbGuide = getTransportGuidance('usb', linuxPlatform);
+            expect(usbGuide.tier).toBe('discouraged');
+            expect(usbGuide.badge).toContain('Not recommended on Linux');
+            expect(usbGuide.discouragedReason).toContain('WebUSB on Linux');
+        });
+
+        it('uses Direct USB badge instead of Wired Connection on Windows and others', () => {
+            const usbGuide = getTransportGuidance('usb', windowsPlatform);
+            expect(usbGuide.badge).toBe('Direct USB');
+            expect(usbGuide.badge).not.toContain('Wired Connection');
+        });
+
+        it('customizes setup steps according to driver families', () => {
+            const niimbotGuide = getTransportGuidance('serial', linuxPlatform, 'niimbot_d11');
+            expect(niimbotGuide.steps?.some(s => s.includes('Niimbot'))).toBe(true);
+
+            const phomemoGuide = getTransportGuidance('serial', linuxPlatform, 'phomemo_m110');
+            expect(phomemoGuide.steps?.some(s => s.includes('Phomemo'))).toBe(true);
+
+            const genericGuide = getTransportGuidance('serial', linuxPlatform, '');
+            expect(genericGuide.steps?.some(s => s.includes('Select your printer name'))).toBe(true);
+        });
     });
 });
