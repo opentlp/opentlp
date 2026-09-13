@@ -73,6 +73,20 @@ describe('MarklifeDriver', () => {
         });
     });
 
+    it('routes the L13 through the legacy path like the LP90', async () => {
+        // The L13 is sold under the Silvercrest/MUNBYN/Luckjingle brands and
+        // advertises an `L13_..._BLE` name. It must take the legacy job path,
+        // not the standard `1F` path, which connects but prints nothing on some
+        // firmware revisions.
+        const transport = new MockTransport('L13_81E0_BLE');
+        await driver.bindTransport(transport);
+
+        expect(driver.getCapabilities()).toMatchObject({
+            canvasHeightPx: 96,
+            driverName: 'Marklife (Legacy L11)'
+        });
+    });
+
     it('should run printInit and send configuration commands', async () => {
         const transport = new MockTransport();
         vi.spyOn(transport, 'write');
@@ -101,6 +115,31 @@ describe('MarklifeDriver', () => {
 
         // Assuming dudu generated at least some payload bits
         expect(transport.writeCount).toBeGreaterThan(0);
+    });
+
+    it('assembles the L13 legacy job with the same framing as the LP90', async () => {
+        const transport = new MockTransport('L13_81E0_BLE');
+        await driver.bindTransport(transport);
+        await driver.printInit({
+            paper: { id: 'continuous', name: 'Continuous', type: 'continuous', tapeWidthMm: 15 },
+            density: 10,
+            speed: 2,
+            copies: 1,
+            feedOverrides: { feedBeforeMm: 1, feedAfterMm: 2 }
+        });
+
+        expect([...transport.writes[0]]).toEqual([0x10, 0xff, 0x10, 0x00, 0x06]);
+        transport.clearWrites();
+
+        const image = { data: new Uint8Array(2 * 96 * 4).fill(255), width: 2, height: 96 };
+        await driver.printPage(monoPage(image));
+
+        expect(transport.writes).toHaveLength(1);
+        const job = transport.writes[0];
+        expect([...job.slice(0, 15)]).toEqual(new Array(15).fill(0));
+        expect([...job.slice(15, 19)]).toEqual([0x10, 0xff, 0xf1, 0x02]);
+        expect([...job.slice(22, 30)]).toEqual([0x1d, 0x76, 0x30, 0x00, 0x0c, 0x00, 0x02, 0x00]);
+        expect([...job.slice(-4)]).toEqual([0x10, 0xff, 0xf1, 0x45]);
     });
 
     it('assembles the LP90 legacy job and honours continuous feed overrides', async () => {

@@ -83,8 +83,10 @@ if (l13) {
     // Rebadged 15 mm unit sold under several house brands and identified by the
     // `L13_..._BLE` device name.
     l13.manualUrl = 'https://manuals.plus/munbyn/l13-label-printer-manual';
-    // Confirmed working against a real unit: prints correctly and behaves
-    // essentially as a P12 does.
+    // Confirmed working against a real unit over the legacy job path the
+    // official app and the original BleWebler both use (see
+    // LEGACY_L11_PREFIXES). The standard `1F` job framing prints nothing on
+    // some firmware revisions.
     l13.supportLevel = 'Tested';
     // Marklife appears to be the OEM's own brand, but they do not sell an L13
     // under it — every unit reaches buyers rebadged. It sits in this driver
@@ -128,8 +130,12 @@ this has not been reconciled; both are recorded rather than one guessed at:
 - [2A6FW-L13](https://fcc.report/FCC-ID/2A6FW-L13/) (Xiamen Print Future Technology Co., Ltd.)
 - [2BHE2-KS4732](https://fcc.report/FCC-ID/2BHE2-KS4732/) (KARSTEN INTERNATIONAL BV)
 
-**Protocol** — the same as the P12: fully supported, including battery and
-paper-out reporting.`;
+**Protocol** — status queries (battery, paper, hardware/firmware/serial)
+use the shared 10 FF INFO family, fully supported. Print jobs use the
+legacy 10 FF F1 02 job framing with an uncompressed GS v 0 raster
+(10 FF F1 45 to close), matching the official Pocket Printer app and the
+original BleWebler, not the P12's 1F job control — which connects but
+produces no output on some firmware revisions.`;
 }
 
 const marklife48mm = buildFamily('Marklife', 'Marklife 48mm Series', ['P50', 'P50S', 'D50', 'M57', 'S8', 'L50', 'X2', 'S2', 'SB_S2', 'Jammuk_S2', 'LPW40'], {
@@ -178,9 +184,15 @@ export const MARKLIFE_HARDWARE_MODELS = [
  * position the label, and `10 FF F1 45` to close. None of the `1F 80`, `1F C0`,
  * `1F 11` or `1F 70` commands are sent to these models by the official app.
  *
+ * The L13 is included here because the official Pocket Printer app (and the
+ * original BleWebler, which prints on this model) drive it with exactly this
+ * legacy sequence. The `1F` job framing the standard path uses does not print
+ * on some L13 firmware revisions: the device accepts the connection and
+ * reports status, but produces no output.
+ *
  * Matched on the advertised name prefix, the same way the official app does.
  */
-const LEGACY_L11_PREFIXES = ['LP90'];
+const LEGACY_L11_PREFIXES = ['LP90', 'L13'];
 
 /**
  * Marklife's `0x1F` protocol, and the `10 FF` INFO command family beside it.
