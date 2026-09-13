@@ -142,6 +142,32 @@ describe('MarklifeDriver', () => {
         expect([...job.slice(-4)]).toEqual([0x10, 0xff, 0xf1, 0x45]);
     });
 
+    it('feeds a default lead and tail on the L13 legacy path with no overrides', async () => {
+        const transport = new MockTransport('L13_81E0_BLE');
+        await driver.bindTransport(transport);
+        await driver.printInit({
+            paper: { id: 'continuous', name: 'Continuous', type: 'continuous', tapeWidthMm: 15 },
+            density: 10,
+            copies: 1
+        });
+        transport.clearWrites();
+
+        const image = { data: new Uint8Array(2 * 96 * 4).fill(255), width: 2, height: 96 };
+        await driver.printPage(monoPage(image));
+
+        const job = transport.writes[0];
+        // After wakeup(15) + startJob(4) comes a default 40-dot lead feed:
+        // 1B 4A 28.
+        expect([...job.slice(15, 19)]).toEqual([0x10, 0xff, 0xf1, 0x02]);
+        expect([...job.slice(19, 22)]).toEqual([0x1b, 0x4a, 0x28]);
+
+        // printEnd sends a trailing tear-off purge (default 91 dots = 0x5B).
+        transport.clearWrites();
+        await driver.printEnd();
+        const endWrite = transport.writes.find(w => w[0] === 0x1b && w[1] === 0x4a);
+        expect(endWrite && endWrite[2]).toBe(0x5b);
+    });
+
     it('assembles the LP90 legacy job and honours continuous feed overrides', async () => {
         const transport = new MockTransport('LP90_Test');
         await driver.bindTransport(transport);

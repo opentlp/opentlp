@@ -371,7 +371,7 @@ export class MarklifeDriver implements IPrinterDriver {
             mediaDefaults: {
                 feedBeforeMinPx: 0,
                 feedBeforeMaxPx: 100, // or whatever makes sense, say 200
-                feedBeforeDefaultPx: 0,
+                feedBeforeDefaultPx: this.usesLegacyL11() ? 40 : 0,
                 feedAfterMinPx: 0,
                 feedAfterMaxPx: 200, // User can override up to a larger amount
                 feedAfterDefaultPx: 40
@@ -637,10 +637,20 @@ export class MarklifeDriver implements IPrinterDriver {
             const gap = this.lastOptions?.paper?.type === 'gap';
             const feedBeforeMm = this.lastOptions?.feedOverrides?.feedBeforeMm;
             const feedAfterMm = this.lastOptions?.feedOverrides?.feedAfterMm;
-            const beforeFeed = !gap && typeof feedBeforeMm === 'number' && feedBeforeMm > 0
-                ? Protocol.feedDots(this.mmToDots(feedBeforeMm))
+            // The L13 parks the label at the printhead on connect; without a
+            // leading feed the image starts at the very top edge of the label.
+            // A 40-dot (~5 mm) lead moves it down, matching the official app's
+            // feed-before positioning. Honoured only on continuous media; gapped
+            // media aligns to the gap instead.
+            const beforeDots = typeof feedBeforeMm === 'number'
+                ? this.mmToDots(feedBeforeMm)
+                : (gap ? 0 : 40);
+            const beforeFeed = !gap && beforeDots > 0
+                ? Protocol.feedDots(beforeDots)
                 : new Uint8Array();
-            const afterDots = typeof feedAfterMm === 'number' ? this.mmToDots(feedAfterMm) : 100;
+            // The after-feed here positions the tail of the label past the
+            // printhead; printEnd sends the tear-off purge separately.
+            const afterDots = typeof feedAfterMm === 'number' ? this.mmToDots(feedAfterMm) : 40;
             const afterFeed = gap
                 ? Protocol.gapAlign()
                 : afterDots > 0 ? Protocol.feedDots(afterDots) : new Uint8Array();
@@ -685,7 +695,17 @@ export class MarklifeDriver implements IPrinterDriver {
         if (!this.transport || !this.writeCharacteristicId) throw new Error("Transport not bound");
 
         if (this.usesLegacyL11()) {
-            // The job was closed inside printPage; just let the mechanism finish.
+            // The job was closed inside printPage; feed the tape out so the
+            // label can be torn off. The official app and the original BleWebler
+            // both feed after the raster on this path; without it the L13 parks
+            // the label under the printhead with no tape to tear.
+            const feedAfterMm = this.lastOptions?.feedOverrides?.feedAfterMm;
+            const feedAfterDots = typeof feedAfterMm === "number"
+                ? this.mmToDots(feedAfterMm)
+                : 91;
+            if (feedAfterDots > 0) {
+                await this.sendCommand(Protocol.feedDots(feedAfterDots));
+            }
             await new Promise(r => setTimeout(r, 300));
             this.flowControl.reset();
             return;
