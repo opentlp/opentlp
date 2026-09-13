@@ -98,14 +98,14 @@
     <section class="hardware-link">
         <h1>Hardware database</h1>
         <p>
-            Explore printer specifications and compatibility notes in OpenTLP,
-            the community hardware database.
+            Explore printer specifications and compatibility notes in the
+            OpenTLP Table of Hardware.
         </p>
-        <a href="https://josb25.github.io/opentlp/" target="_blank" rel="noopener noreferrer" class="btn">
-            Open OpenTLP
+        <a href="https://opentlp.github.io/table-of-hardware/" target="_blank" rel="noopener noreferrer" class="btn">
+            Open the Table of Hardware
         </a>
         <p class="aside">
-            BleWebler2 shows compatible models in the printer selection flow.
+            OpenTLP Studio shows compatible models in the printer selection flow.
         </p>
     </section>
 {/snippet}
@@ -115,7 +115,7 @@
     {session}
     {transports}
     extraTabs={[{ id: 'hardware', label: 'Hardware', content: hardwareTab, fullBleed: true }]}
-    title="BleWebler2"
+    title="OpenTLP Studio"
 />
 
 <a class="privacy-link" href={privacyUrl}>Privacy</a>

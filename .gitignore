@@ -1,6 +1,7 @@
 node_modules/
 dist/
 lib/
+generated/
 coverage/
 .svelte-kit/
 _site/

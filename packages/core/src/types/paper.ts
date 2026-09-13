@@ -184,7 +184,7 @@ export const DEFAULT_PAPER_PROFILES: PaperProfile[] = [
         // where it doubles over), followed by a 7x35mm wrap tail that curls
         // around the cable to hold it - thick, thick, then thin - for a 109mm
         // label on a 15mm carrier. Geometry reported in issue #5:
-        // https://github.com/josb25/BleWebler2/issues/5
+        // https://github.com/opentlp/opentlp/issues/5
         // The wrap tail is part of the sticker but not
         // a place to write, so it is a keep-clear area rather than a hole, and
         // the two panels are where content belongs.

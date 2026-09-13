@@ -34,6 +34,7 @@ jobs:
         run: |
           npm run check
           npm test
+          npm run catalogue:links
 
       - name: Configure Pages
         uses: actions/configure-pages@v6
@@ -41,7 +42,7 @@ jobs:
       - name: Build web app
         run: npm run build
         env:
-          VITE_BASE_PATH: /BleWebler2/
+          VITE_BASE_PATH: /opentlp/studio/
 
       - name: Build ULT documentation
         uses: actions/jekyll-build-pages@v1
@@ -49,15 +50,17 @@ jobs:
           source: ./packages/ult
           destination: ./packages/ult/_site
 
-      - name: Add ULT documentation to the site
+      - name: Assemble the OpenTLP Pages site
         run: |
-          mkdir -p apps/web-app/dist/ult
-          cp -R packages/ult/_site/. apps/web-app/dist/ult/
+          mkdir -p apps/web-app/pages/studio/ult
+          cp -R apps/web-app/dist/. apps/web-app/pages/studio/
+          cp -R packages/ult/_site/. apps/web-app/pages/studio/ult/
+          cp apps/web-app/pages-index.html apps/web-app/pages/index.html
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: apps/web-app/dist
+          path: apps/web-app/pages
 
   deploy:
     environment:

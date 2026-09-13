@@ -1,20 +1,20 @@
 <div align="center">
-  <img src="apps/web-app/public/icon-192.png" width="96" height="96" alt="BleWebler2 icon">
-  <h1>BleWebler2</h1>
+  <img src="apps/web-app/public/icon-192.png" width="96" height="96" alt="OpenTLP Studio icon">
+  <h1>OpenTLP Studio</h1>
   <p><strong>Design once. Print locally. Keep the printer interchangeable.</strong></p>
   <p>A local-first label designer with adaptive templates, a printer-agnostic driver layer, and browser, Capacitor, and Node.js transports.</p>
   <p>
-    <a href="https://github.com/josb25/BleWebler2/actions/workflows/ci.yml"><img src="https://github.com/josb25/BleWebler2/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+    <a href="https://github.com/opentlp/opentlp/actions/workflows/ci.yml"><img src="https://github.com/opentlp/opentlp/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2563eb.svg" alt="MIT licence"></a>
-    <a href="https://josb25.github.io/BleWebler2/"><img src="https://img.shields.io/badge/open-web_app-7c3aed.svg" alt="Open web app"></a>
+    <a href="https://opentlp.github.io/opentlp/studio/"><img src="https://img.shields.io/badge/open-Studio-7c3aed.svg" alt="Open OpenTLP Studio"></a>
   </p>
 </div>
 
-# [**Try BleWebler2 here →**](https://josb25.github.io/BleWebler2/)
+# [**Open OpenTLP Studio →**](https://opentlp.github.io/opentlp/studio/)
 
-## Why BleWebler2
+## Why OpenTLP Studio
 
-Most label software binds the design to one printer, one operating system, or one vendor cloud. BleWebler2 separates those concerns:
+Most label software binds the design to one printer, one operating system, or one vendor cloud. OpenTLP separates those concerns:
 
 - **[Universal Label Templates](packages/ult)** resize and reflow for the selected label instead of storing one fixed bitmap.
 - **Printer-agnostic jobs** keep rendering independent from the device protocol.
@@ -25,7 +25,7 @@ Most label software binds the design to one printer, one operating system, or on
 
 ## Supported hardware
 
-BleWebler2 includes drivers for:
+OpenTLP Core includes drivers for:
 
 | Driver | Coverage |
 | --- | --- |
@@ -60,8 +60,8 @@ Browser hardware APIs require HTTPS (or localhost), a compatible browser, and an
 
 Requirements: Node.js 22.12 or newer and npm 10 or newer.
 
-    git clone https://github.com/josb25/BleWebler2.git
-    cd BleWebler2
+    git clone https://github.com/opentlp/opentlp.git
+    cd opentlp
     npm ci
     npm run dev
 
@@ -88,6 +88,7 @@ Before submitting a change:
 | [`apps/cli`](apps/cli) | Command-line ULT renderer and local printer client |
 | [`apps/mqtt-client`](apps/mqtt-client) | Headless MQTT-to-printer service |
 | [`packages/core`](packages/core) | Drivers, device discovery, transports, and print orchestration |
+| [`packages/hardware`](packages/hardware) | Table of Hardware data, schemas, validation, and exports |
 | [`packages/ult`](packages/ult) | ULT 1.0 specification and conformance examples |
 | [`packages/renderer`](packages/renderer) | Adaptive template model, layout, validation, and rasterization |
 | [`packages/ui-components`](packages/ui-components) | Svelte label designer |
@@ -117,6 +118,6 @@ Bug reports, verified hardware observations, documentation, and focused patches 
 
 ## Licence
 
-Original BleWebler2 code is available under the [MIT License](LICENSE). Bundled dependencies, icons, and fonts retain their own terms; see [Third-party notices](THIRD-PARTY-NOTICES.md).
+Original OpenTLP code is available under the [MIT License](LICENSE). Hardware data is CC0-1.0. Bundled dependencies, icons, and fonts retain their own terms; see [Third-party notices](THIRD-PARTY-NOTICES.md).
 
-BleWebler2 is an independent project and is not affiliated with or endorsed by Marklife, Niimbot, or their manufacturers.
+OpenTLP is an independent project and is not affiliated with or endorsed by the printer manufacturers named in the compatibility catalogue.

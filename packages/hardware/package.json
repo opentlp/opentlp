@@ -1,0 +1,26 @@
+{
+  "name": "@opentlp/hardware",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OpenTLP Table of Hardware data, schemas, and validation",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./catalogue": {
+      "types": "./generated/catalogue.ts",
+      "import": "./generated/catalogue.ts",
+      "default": "./generated/catalogue.ts"
+    }
+  },
+  "scripts": {
+    "validate": "node scripts/validate.mjs",
+    "build": "node scripts/export.mjs",
+    "test": "npm run validate",
+    "check": "npm run validate"
+  },
+  "devDependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "yaml": "^2.8.0"
+  }
+}

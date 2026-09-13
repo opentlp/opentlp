@@ -42,7 +42,7 @@ interface StatusMessage {
   error?: string;
 }
 
-const HELP = `BleWebler2 MQTT service
+const HELP = `OpenTLP MQTT service
 
 Subscribe to validated ULT print jobs and send them to a configured local printer.
 Configuration is read from environment variables; see apps/mqtt-client/.env.example.

@@ -124,7 +124,7 @@ async function createWindow() {
 
     configureDeviceAccess(mainWindow);
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-        if (url.startsWith('https://github.com/') || url.startsWith('https://josb25.github.io/opentlp/')) {
+        if (url.startsWith('https://github.com/') || url.startsWith('https://opentlp.github.io/table-of-hardware/')) {
             void shell.openExternal(url);
         }
         return { action: 'deny' };

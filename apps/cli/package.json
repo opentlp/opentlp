@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Command-line ULT renderer and local printer client for BleWebler2.",
+  "description": "Command-line ULT renderer and local printer client for OpenTLP.",
   "scripts": {
     "prestart": "npm run build",
     "start": "node dist/index.js",

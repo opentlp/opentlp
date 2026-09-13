@@ -2,7 +2,7 @@
   "name": "blewebler2-desktop",
   "version": "0.1.0",
   "private": true,
-  "description": "Electron shell for the BleWebler2 label designer.",
+  "description": "Electron shell for OpenTLP Studio.",
   "main": "src/main.cjs",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5174",

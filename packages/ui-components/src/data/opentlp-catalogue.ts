@@ -1,16 +1,16 @@
-import rawSnapshot from './opentlp-snapshot.json';
+import rawSnapshot from '@opentlp/hardware/catalogue';
 import type { PrinterModelProfile } from 'universal-label-core';
 
 export type CataloguePrinterProfile = Pick<
     PrinterModelProfile,
-    'id' | 'brand' | 'model' | 'family' | 'aliases'
+    'id' | 'tohId' | 'brand' | 'model' | 'family' | 'aliases'
 >;
 
 export interface OpenTlpDevice {
     id: string;
     brand: string;
     model: string;
-    aliases?: string[];
+    aliases?: readonly string[];
     rebadgeOf?: string | null;
     family?: string | null;
     status?: 'verified' | 'reported' | 'unverified' | null;
@@ -22,11 +22,11 @@ export interface OpenTlpSnapshot {
     generated: string;
     licence: string;
     count: number;
-    devices: OpenTlpDevice[];
+    devices: readonly OpenTlpDevice[];
 }
 
-export const OPENTLP_CATALOGUE_URL = 'https://josb25.github.io/opentlp/';
-export const OPENTLP_SNAPSHOT = rawSnapshot as OpenTlpSnapshot;
+export const OPENTLP_CATALOGUE_URL = 'https://opentlp.github.io/table-of-hardware/';
+export const OPENTLP_SNAPSHOT: OpenTlpSnapshot = rawSnapshot;
 export const OPENTLP_DEVICES: readonly OpenTlpDevice[] = OPENTLP_SNAPSHOT.devices;
 
 const devicesById = new Map<string, OpenTlpDevice>();
@@ -76,9 +76,12 @@ function normalizeModel(str: string | undefined | null): string {
  */
 export function matchOpenTlpDevice(profile: CataloguePrinterProfile): OpenTlpDevice | undefined {
     // 1. Match exact id first
-    const exact = devicesById.get(profile.id);
+    const exact = devicesById.get(profile.tohId ?? profile.id);
     if (exact) {
         return exact;
+    }
+    if (profile.tohId) {
+        return undefined;
     }
 
     // 2. For Cat Printer IDs only, fall back by normalized model + protocol slug

@@ -11,6 +11,14 @@ export type SupportLevel =
  */
 export interface PrinterModelProfile {
     id: string; // e.g., 'marklife_p12', 'niimbot_d11', 'generic_12mm'
+    /**
+     * Stable id in packages/hardware/devices when it differs from this
+     * driver's internal profile id. Omit when both ids are identical.
+     *
+     * The reference is one-way: every value here must resolve to a hardware
+     * entry, while a hardware entry is allowed to have no driver at all.
+     */
+    tohId?: string;
     brand: string;
     model: string;
     family?: string;

@@ -37,5 +37,8 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Validate driver-to-hardware links
+        run: node scripts/validate-hardware-links.mjs
+
       - name: Verify publishable packages
         run: node scripts/verify-publishable-packages.mjs

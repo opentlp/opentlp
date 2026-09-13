@@ -1,6 +1,6 @@
 # Universal Label Core
 
-The printer-agnostic runtime behind BleWebler2. It separates byte transport, printer protocol encoding, and print orchestration so the renderer and interface do not depend on one manufacturer.
+The printer-agnostic runtime behind OpenTLP Studio. It separates byte transport, printer protocol encoding, and print orchestration so the renderer and interface do not depend on one manufacturer.
 
 ## Install
 
@@ -44,7 +44,7 @@ Platform bindings are optional peer dependencies. Install only the binding requi
 | Node.js USB | `usb` |
 | Node.js serial | `serialport` |
 
-Web transports and the virtual transport need no native binding. Capacitor Android RFCOMM uses BleWebler2's small app-owned native plugin because Capacitor has no standard Classic Bluetooth transport contract.
+Web transports and the virtual transport need no native binding. Capacitor Android RFCOMM uses OpenTLP Studio's small app-owned native plugin because Capacitor has no standard Classic Bluetooth transport contract.
 
 ## Basic connection
 

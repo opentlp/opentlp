@@ -87,14 +87,14 @@
     "marklife"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/josb25/BleWebler2/tree/main/packages/core",
+  "homepage": "https://github.com/opentlp/opentlp/tree/main/packages/core",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/josb25/BleWebler2.git",
+    "url": "git+https://github.com/opentlp/opentlp.git",
     "directory": "packages/core"
   },
   "bugs": {
-    "url": "https://github.com/josb25/BleWebler2/issues"
+    "url": "https://github.com/opentlp/opentlp/issues"
   },
   "publishConfig": {
     "access": "public",

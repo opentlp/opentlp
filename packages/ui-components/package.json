@@ -14,13 +14,16 @@
         }
     },
     "scripts": {
+        "precheck": "npm run build --workspace @opentlp/hardware",
         "check": "svelte-check --tsconfig ./tsconfig.json",
+        "pretest": "npm run build --workspace @opentlp/hardware",
         "test": "vitest run --passWithNoTests"
     },
     "peerDependencies": {
         "svelte": "^5.0.0"
     },
     "dependencies": {
+        "@opentlp/hardware": "file:../hardware",
         "universal-label-core": "file:../core",
         "universal-label-renderer": "file:../renderer"
     },

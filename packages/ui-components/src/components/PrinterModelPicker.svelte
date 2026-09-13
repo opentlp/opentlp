@@ -72,7 +72,7 @@
             {/if}
         </div>
         <div class="catalogue-bar">
-            <span class="catalogue-hint">BleWebler2-supported models &bull; OpenTLP snapshot {OPENTLP_SNAPSHOT.generated}</span>
+            <span class="catalogue-hint">OpenTLP-supported models &bull; hardware catalogue {OPENTLP_SNAPSHOT.generated}</span>
             <a
                 href={OPENTLP_CATALOGUE_URL}
                 target="_blank"
@@ -91,7 +91,7 @@
             <span class="empty-icon"><Icon name="search" size={28} /></span>
             <p class="empty-title">No matching printer models</p>
             <p class="empty-hint">
-                No supported profile matches "{searchQuery}". Note that only supported profiles are selectable in BleWebler2.
+                No supported profile matches "{searchQuery}". Only models with an OpenTLP Core driver are selectable.
             </p>
             <button type="button" class="reset-search-btn" onclick={() => (searchQuery = '')}>
                 Clear search

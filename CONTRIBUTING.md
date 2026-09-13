@@ -1,6 +1,6 @@
 # Contributing
 
-BleWebler2 welcomes focused fixes, documentation, verified device information, and support for additional hardware. Please keep each change reviewable and include tests for protocol or rendering behavior.
+OpenTLP welcomes focused fixes, documentation, verified device information, and support for additional hardware. Please keep each change reviewable and include tests for protocol or rendering behavior.
 
 ## Development
 

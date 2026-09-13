@@ -28,7 +28,7 @@ interface CliOptions {
   params: Record<string, string>;
 }
 
-const HELP = `BleWebler2 CLI
+const HELP = `OpenTLP CLI
 
 Render a Universal Label Template and print it locally. The virtual printer is
 the default, so running a command never selects physical hardware by accident.
