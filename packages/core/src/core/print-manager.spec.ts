@@ -156,6 +156,18 @@ describe('PrintManager', () => {
         await expect(printManager.connect(transport)).rejects.toThrow(/no compatible driver/);
     });
 
+    it('does not route a serial port with a neutral name to the NIIMBOT driver', async () => {
+        // Regression: the Web/Node serial transports used to default an
+        // unnamed port to "NIIMBOT Serial Printer", whose "niimbot" substring
+        // satisfied NiimbotDriver.isCompatible and silently routed serial-
+        // connected printers (e.g. an L13 over SPP) to the wrong protocol.
+        // A neutral name must match no driver, and serial exposes no GATT
+        // services to disambiguate, so the honest result is to refuse and
+        // ask the user to select the driver manually.
+        const transport = new FastMockTransport('Serial Printer', []);
+        await expect(printManager.connect(transport)).rejects.toThrow(/no compatible driver/);
+    });
+
     it('passes every registered service to the transport discovery request', async () => {
         const transport = new FastMockTransport('UnknownJunkDevice');
         const connectSpy = vi.spyOn(transport, 'connect');

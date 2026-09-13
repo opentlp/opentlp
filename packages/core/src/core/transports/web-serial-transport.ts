@@ -48,7 +48,7 @@ export class WebSerialTransport extends EventEmitter<TransportEventMap> implemen
         super();
         this.options = {
             baudRate: options.baudRate ?? 115200,
-            deviceName: options.deviceName ?? "NIIMBOT Serial Printer",
+            deviceName: options.deviceName ?? "Serial Printer",
             ...options
         };
     }
