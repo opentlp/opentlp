@@ -1,6 +1,8 @@
 node_modules/
 dist/
 lib/
+!packages/hardware/scripts/lib/
+!packages/hardware/scripts/lib/*.mjs
 generated/
 coverage/
 .svelte-kit/
