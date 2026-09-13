@@ -117,7 +117,7 @@ describe('MarklifeDriver', () => {
         expect(transport.writeCount).toBeGreaterThan(0);
     });
 
-    it('assembles the L13 legacy job with the same framing as the LP90', async () => {
+    it('assembles the L13 legacy job with the official-app enable byte', async () => {
         const transport = new MockTransport('L13_81E0_BLE');
         await driver.bindTransport(transport);
         await driver.printInit({
@@ -137,7 +137,9 @@ describe('MarklifeDriver', () => {
         expect(transport.writes).toHaveLength(1);
         const job = transport.writes[0];
         expect([...job.slice(0, 15)]).toEqual(new Array(15).fill(0));
-        expect([...job.slice(15, 19)]).toEqual([0x10, 0xff, 0xf1, 0x02]);
+        // The L13 enable byte is 0x03 (official Pocket Printer app), not the
+        // 0x02 the LP90 and the original BleWebler use.
+        expect([...job.slice(15, 19)]).toEqual([0x10, 0xff, 0xf1, 0x03]);
         expect([...job.slice(22, 30)]).toEqual([0x1d, 0x76, 0x30, 0x00, 0x0c, 0x00, 0x02, 0x00]);
         expect([...job.slice(-4)]).toEqual([0x10, 0xff, 0xf1, 0x45]);
     });
@@ -156,9 +158,9 @@ describe('MarklifeDriver', () => {
         await driver.printPage(monoPage(image));
 
         const job = transport.writes[0];
-        // After wakeup(15) + startJob(4) comes a default 40-dot lead feed:
-        // 1B 4A 28.
-        expect([...job.slice(15, 19)]).toEqual([0x10, 0xff, 0xf1, 0x02]);
+        // After wakeup(15) + startJob(4, enable=0x03) comes a default 40-dot
+        // lead feed: 1B 4A 28.
+        expect([...job.slice(15, 19)]).toEqual([0x10, 0xff, 0xf1, 0x03]);
         expect([...job.slice(19, 22)]).toEqual([0x1b, 0x4a, 0x28]);
 
         // printEnd sends a trailing tear-off purge (default 91 dots = 0x5B).

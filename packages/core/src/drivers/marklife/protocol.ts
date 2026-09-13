@@ -58,8 +58,17 @@ export const endJobAlternate = (): Uint8Array => cmd(0x10, 0xff, 0xf1, 0x45);
 /** 15 zero bytes: wakes the module before a job. */
 export const legacyWakeup = (): Uint8Array => new Uint8Array(15);
 
-/** Open a job on the legacy path. Pairs with {@link endJobAlternate}. */
-export const legacyStartJob = (): Uint8Array => cmd(0x10, 0xff, 0xf1, 0x02);
+/**
+ * Open a job on the legacy path. Pairs with {@link endJobAlternate}.
+ *
+ * The trailing byte is the enable code. Most of this family answers `02`,
+ * which the original BleWebler sends and which the LP90 is confirmed with.
+ * The L13 is driven with `03` by the official Pocket Printer app and by the
+ * standalone test pages that print on it; `02` is unconfirmed on L13
+ * firmware V3.08, so callers should pass the value their model needs.
+ */
+export const legacyStartJob = (enable = 0x02): Uint8Array =>
+    cmd(0x10, 0xff, 0xf1, enable & 0xff);
 
 /** ESC/POS `GS FF`: advance to the next gap. Sent after the raster on gapped media. */
 export const gapAlign = (): Uint8Array => cmd(0x1d, 0x0c);

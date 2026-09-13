@@ -263,6 +263,17 @@ export class MarklifeDriver implements IPrinterDriver {
         return LEGACY_L11_PREFIXES.some(prefix => name.startsWith(prefix));
     }
 
+    /**
+     * The legacy job-enable code a model answers. Most of the family takes
+     * `02` (confirmed on the LP90 and what the original BleWebler sends); the
+     * L13 is driven with `03` by the official Pocket Printer app and by the
+     * standalone test pages that print on it.
+     */
+    private legacyEnableByte(): number {
+        const name = (this.transport?.getDeviceName() ?? '').toUpperCase();
+        return name.startsWith('L13') ? 0x03 : 0x02;
+    }
+
     /** Concatenate command fragments into one job buffer. */
     private static concat(...parts: Uint8Array[]): Uint8Array {
         const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
@@ -656,7 +667,7 @@ export class MarklifeDriver implements IPrinterDriver {
                 : afterDots > 0 ? Protocol.feedDots(afterDots) : new Uint8Array();
             const job = MarklifeDriver.concat(
                 Protocol.legacyWakeup(),
-                Protocol.legacyStartJob(),
+                Protocol.legacyStartJob(this.legacyEnableByte()),
                 beforeFeed,
                 encodeRasterGsV0({ width: hardwareWidth, height: hardwareHeight, data: hardwareData }),
                 afterFeed,
