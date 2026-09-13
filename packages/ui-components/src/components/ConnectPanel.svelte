@@ -103,32 +103,49 @@
         <div class="options">
             {#each transports as option (option.id)}
                 <div class="option" class:disabled={!option.available}>
-                    <div class="text">
-                        <strong>{option.label}</strong>
-                        {#if option.description}<span class="desc">{option.description}</span>{/if}
-                        {#if !option.available && option.unavailableReason}
-                            <span class="desc warn">{option.unavailableReason}</span>
-                        {/if}
-                        {#if option.isDummy}
-                            <label class="profile">
-                                Simulate:
-                                <select
-                                    onchange={e => (dummyProfileIdx = Number(e.currentTarget.value))}
-                                >
-                                    {#each DUMMY_PROFILES as p, i (p.label)}
-                                        <option value={i} selected={i === dummyProfileIdx}>{p.label}</option>
-                                    {/each}
-                                </select>
-                            </label>
-                        {/if}
+                    <div class="row">
+                        <div class="text">
+                            <strong>{option.label}</strong>
+                            {#if option.description}<span class="desc">{option.description}</span>{/if}
+                            {#if !option.available && option.unavailableReason}
+                                <span class="desc warn">{option.unavailableReason}</span>
+                            {/if}
+                            {#if option.isDummy}
+                                <label class="profile">
+                                    Simulate:
+                                    <select
+                                        onchange={e => (dummyProfileIdx = Number(e.currentTarget.value))}
+                                    >
+                                        {#each DUMMY_PROFILES as p, i (p.label)}
+                                            <option value={i} selected={i === dummyProfileIdx}>{p.label}</option>
+                                        {/each}
+                                    </select>
+                                </label>
+                            {/if}
+                        </div>
+                        <button
+                            class="primary"
+                            disabled={!option.available || snap.state === 'connecting'}
+                            onclick={() => connect(option)}
+                        >
+                            {busyId === option.id && snap.state === 'connecting' ? 'Connecting…' : 'Connect'}
+                        </button>
                     </div>
-                    <button
-                        class="primary"
-                        disabled={!option.available || snap.state === 'connecting'}
-                        onclick={() => connect(option)}
-                    >
-                        {busyId === option.id && snap.state === 'connecting' ? 'Connecting…' : 'Connect'}
-                    </button>
+                    {#if option.help}
+                        <details class="setup-help">
+                            <summary>{option.help.summary}</summary>
+                            <ol>
+                                {#each option.help.steps as step}
+                                    <li>{@html step}</li>
+                                {/each}
+                            </ol>
+                            {#if option.help.link}
+                                <a class="desc" href={option.help.link.url} target="_blank" rel="noopener noreferrer">
+                                    {option.help.link.label}
+                                </a>
+                            {/if}
+                        </details>
+                    {/if}
                 </div>
             {/each}
         </div>
@@ -217,7 +234,20 @@
         color: var(--muted);
         font-size: 12px;
     }
-    .option,
+    .option {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 10px;
+        background: var(--panel);
+        border-radius: 2px;
+    }
+    .option .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
     .connected {
         display: flex;
         align-items: center;
@@ -263,6 +293,33 @@
         font-size: 13px;
         margin-top: 4px;
     }
+    .setup-help {
+        border-top: 1px solid var(--border);
+        padding-top: 6px;
+    }
+    .setup-help summary {
+        font-size: 12px;
+        color: var(--muted);
+        cursor: pointer;
+        user-select: none;
+    }
+    .setup-help summary:hover {
+        color: var(--text);
+    }
+    .setup-help ol {
+        margin: 8px 0 4px;
+        padding-left: 20px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.5;
+    }
+    .setup-help li + li {
+        margin-top: 4px;
+    }
+    .setup-help a {
+        display: inline-block;
+        margin-top: 4px;
+    }
     .error {
         display: flex;
         align-items: center;
@@ -281,13 +338,13 @@
         flex: none;
     }
     @media (max-width: 520px) {
-        .option,
+        .option .row,
         .connected,
         .driver-choice {
             align-items: flex-start;
             flex-wrap: wrap;
         }
-        .option .text { flex: 1 1 190px; }
+        .option .row .text { flex: 1 1 190px; }
         .connected .text { flex: 1 1 calc(100% - 90px); }
         .actions {
             width: 100%;

@@ -70,6 +70,20 @@
                       unavailableReason: !secure
                           ? 'WebUSB needs HTTPS or localhost.'
                           : 'This browser has no WebUSB support.',
+                      help: {
+                          summary: 'USB needs a one-time driver setup (Windows)',
+                          steps: [
+                              'Download and run Zadig (link below).',
+                              'Options → List All Devices, then select your printer in the dropdown.',
+                              'Set the target driver to <strong>WinUSB</strong> and choose Replace Driver. This exposes the printer to the browser; it will no longer appear as a Windows printer.',
+                              'Back here, set <strong>Printer protocol</strong> to your printer\'s family (e.g. Marklife) — Automatic cannot detect a USB device.',
+                              'Click USB, then pick your printer in the browser\'s device chooser.'
+                          ],
+                          link: {
+                              label: 'Download Zadig (official)',
+                              url: 'https://zadig.akeo.ie/'
+                          }
+                      },
                       create: () => new WebUsbTransport()
                   },
                   {
