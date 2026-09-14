@@ -74,29 +74,30 @@ python3 scripts/extract-app-palette.py /tmp/icon.png \
 ================================================================
  OpenTLP Companion App Brand Palette Extractor
 ================================================================
- Source: /tmp/icon.png
+ Source: /tmp/marklife_icon.png
 
  Dominant Colors Extracted:
-        #06b6d4  (RGB:   6, 182, 212)  [rank #1]
-        #0891b2  (RGB:   8, 145, 178)  [rank #2]
-        #e0f2fe  (RGB: 224, 242, 254)  [rank #3]
+        #fb4e48  (RGB: 251,  78,  72)  [color #1]
+        #ffffff  (RGB: 255, 255, 255)  [color #2]
 
- Recommended Primary Brand Color: #06b6d4
- Badge Text Contrast: white (#ffffff) (White contrast: 4.8:1, Dark contrast: 4.4:1)
+ Recommended Primary Brand Color: #fb4e48
+ Extracted Brand Palette: ['#fb4e48', '#ffffff']
+ Badge Text Contrast: dark (#0f172a) (White contrast: 3.3:1, Dark contrast: 5.4:1)
 
  Generated KNOWN_COMPANION_APPS entry for `packages/ui-components/src/data/app-directory.ts`:
 
     {
-        id: 'munbyn_print',
-        name: 'Munbyn Print',
-        developer: 'MUNBYN / SYZ',
-        brandColor: '#06b6d4',
+        id: 'marklife',
+        name: 'Marklife',
+        developer: 'Marklife / Zhuhai Quin',
+        brandColor: '#fb4e48',
+        brandPalette: ['#fb4e48', '#ffffff'],
         badgeLetter: 'M',
-        popularModels: ['ITPP941', 'RW401AP', 'Realwriter 941', 'ITPP130'],
-        summary: 'Official companion app for Munbyn Print thermal printers.',
-        replacesApps: ['Munbyn Print', 'Munbyn'],
-        playStoreUrl: 'https://play.google.com/store/apps/details?id=com.syz.mprint',
-        appStoreUrl: 'https://apps.apple.com/app/munbyn-print/id1588636254',
+        popularModels: ['P12', 'P11', 'P15', 'P50', 'M1'],
+        summary: 'Official companion app for Marklife thermal printers.',
+        replacesApps: ['Marklife'],
+        playStoreUrl: 'https://play.google.com/store/apps/details?id=com.quyin.marklife',
+        appStoreUrl: 'https://apps.apple.com/app/marklife/id1552317937',
     },
 ================================================================
 ```
@@ -105,15 +106,17 @@ python3 scripts/extract-app-palette.py /tmp/icon.png \
 
 ## 4. How the Color Quantization Works
 
-1. **Noise & Card Filtering**:
-   - Ignores transparent alpha pixels (`a < 128`).
-   - Ignores background canvas padding (near-white pixels `RGB > 248` and extreme black borders `RGB < 12`).
-2. **Vibrancy & Saturation Weighting**:
-   - Converts pixels to HLS color space.
-   - Weights candidate clusters by `count * (saturation * 1.8 + 0.25)` to elevate vibrant corporate brand accents over neutral gray or white background surfaces.
-3. **Euclidean Color Clustering**:
-   - Merges nearby color shades within distance `< 32` in RGB space into unified dominant centroids.
-4. **WCAG 2.1 Contrast Calculation**:
+1. **Background Detection & Segmentation**:
+   - Analyzes corner pixels to identify the canvas background color (snapping near-white backgrounds to `#ffffff`).
+   - Isolates foreground illustration elements from the background.
+2. **Anti-Aliasing Edge Filter (`is_blend`)**:
+   - Detects intermediate pixel color transitions created by bilinear/subpixel smoothing between foreground shapes and background.
+   - Discards these transition artifacts so palettes only contain the authentic visual elements (e.g. Marklife yields `#fb4e48` and `#ffffff`, rather than artificial pastel pink edge artifacts).
+3. **Color Clustering**:
+   - Merges nearby color shades within Euclidean distance `< 32` into unified dominant centroids.
+4. **Palette Ordering**:
+   - Orders primary chromatic brand colors first, followed by graphic accent colors and the background color (2–4 colors total).
+5. **WCAG 2.1 Contrast Calculation**:
    - Calculates relative luminance and contrast ratio against white (`#ffffff`) and dark slate (`#0f172a`) to guarantee readable monogram badge text.
 
 ---

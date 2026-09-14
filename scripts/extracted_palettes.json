@@ -1,0 +1,127 @@
+{
+  "pocket_printer": {
+    "color": "#286aca",
+    "palette": [
+      "#286aca",
+      "#0766a6",
+      "#eff2fb"
+    ],
+    "meta": {
+      "local": true
+    }
+  },
+  "print_master": {
+    "color": "#e7413b",
+    "palette": [
+      "#e7413b",
+      "#ffffff"
+    ],
+    "meta": {
+      "local": true
+    }
+  },
+  "phomemo": {
+    "color": "#fd4055",
+    "palette": [
+      "#fd4055",
+      "#fe687c",
+      "#ffffff"
+    ],
+    "meta": {
+      "local": true
+    }
+  },
+  "labelife": {
+    "color": "#3e82f8",
+    "palette": [
+      "#3e82f8",
+      "#ffffff"
+    ],
+    "meta": {
+      "local": true
+    }
+  },
+  "munbyn_print": {
+    "color": "#ff4814",
+    "palette": [
+      "#ff4814",
+      "#ffffff"
+    ],
+    "meta": {
+      "local": true
+    }
+  },
+  "marklife": {
+    "color": "#fb514b",
+    "palette": [
+      "#fb514b",
+      "#ffffff"
+    ],
+    "meta": {
+      "local": true
+    }
+  },
+  "tiny_print": {
+    "color": "#7299f0",
+    "palette": [
+      "#7299f0",
+      "#ffffff"
+    ],
+    "meta": {
+      "local": true
+    }
+  },
+  "niimbot": {
+    "color": "#f9524b",
+    "palette": [
+      "#f9524b",
+      "#b6b6b6",
+      "#ffffff"
+    ],
+    "meta": {
+      "local": true
+    }
+  },
+  "fun_print": {
+    "color": "#f95959",
+    "palette": [
+      "#f95959",
+      "#fef6f6"
+    ],
+    "meta": {
+      "local": true
+    }
+  },
+  "walkprint": {
+    "color": "#8073f7",
+    "palette": [
+      "#8073f7",
+      "#ffffff"
+    ],
+    "meta": {
+      "local": true
+    }
+  },
+  "peripage": {
+    "color": "#3fad34",
+    "palette": [
+      "#3fad34",
+      "#362f2d",
+      "#ffffff"
+    ],
+    "meta": {
+      "local": true
+    }
+  },
+  "flashlabel": {
+    "color": "#439bfd",
+    "palette": [
+      "#439bfd",
+      "#1e5b9d",
+      "#ffffff"
+    ],
+    "meta": {
+      "local": true
+    }
+  }
+}

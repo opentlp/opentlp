@@ -115,7 +115,18 @@ describe('Companion App Directory (KNOWN_COMPANION_APPS)', () => {
             expect(found?.brandColor).toMatch(/^#[0-9a-fA-F]{6}$/);
             expect(found?.badgeLetter.length).toBe(1);
             expect(found?.replacesApps.length).toBeGreaterThan(0);
+            expect(found?.brandPalette).toBeDefined();
+            expect(found?.brandPalette.length).toBeGreaterThanOrEqual(2);
+            expect(found?.brandPalette.length).toBeLessThanOrEqual(4);
+            expect(found?.brandPalette[0]).toBe(found?.brandColor);
+            for (const color of found?.brandPalette ?? []) {
+                expect(color).toMatch(/^#[0-9a-fA-F]{6}$/);
+            }
         }
+
+        // Marklife has the salmon foreground shape on a white background
+        const marklifeApp = KNOWN_COMPANION_APPS.find(a => a.id === 'marklife');
+        expect(marklifeApp?.brandPalette).toEqual(['#fb4e48', '#ffffff']);
     });
 
     it('accurately configures Pocket Printer for Karsten International hardware', () => {

@@ -104,57 +104,113 @@ def contrast_ratio(lum1: float, lum2: float) -> float:
     return (lighter + 0.05) / (darker + 0.05)
 
 
+def is_blend(c, c1, c2) -> bool:
+    """Check if color c is an intermediate anti-aliasing blend between c1 and c2."""
+    v = [c2[i] - c1[i] for i in range(3)]
+    v_norm_sq = sum(x * x for x in v)
+    if v_norm_sq == 0:
+        return False
+    diff = [c[i] - c1[i] for i in range(3)]
+    t = sum(diff[i] * v[i] for i in range(3)) / v_norm_sq
+    if 0.05 < t < 0.95:
+        perp = [diff[i] - t * v[i] for i in range(3)]
+        perp_dist = (sum(x * x for x in perp)) ** 0.5
+        if perp_dist < 18.0:
+            return True
+    return False
+
+
 def extract_palette(img_bytes: bytes):
-    """Cluster and score dominant brand colors from image bytes."""
-    im = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
-    # Resize thumbnail to 96x96 for uniform processing
+    """Extract distinct visual colors from image bytes (background + foreground elements)."""
+    im = Image.open(io.BytesIO(img_bytes)).convert("RGB")
     im = im.resize((96, 96), Image.Resampling.BILINEAR)
     width, height = im.size
-    pixels = im.load()
+    px = im.load()
+    pixels = [px[x, y] for y in range(height) for x in range(width)]
 
-    raw_counts = {}
-    for y in range(height):
-        for x in range(width):
-            r, g, b, a = pixels[x, y]
-            if a < 128:
-                continue
-            # Filter pure background white or extreme black noise
-            if r > 248 and g > 248 and b > 248:
-                continue
-            if r < 12 and g < 12 and b < 12:
-                continue
-            # Discretize into 8-bit buckets
-            bucket = (r // 4 * 4, g // 4 * 4, b // 4 * 4)
-            raw_counts[bucket] = raw_counts.get(bucket, 0) + 1
+    # 1. Detect background from corner regions
+    corner_samples = []
+    for y in (0, 1, 2, height - 3, height - 2, height - 1):
+        for x in (0, 1, 2, width - 3, width - 2, width - 1):
+            corner_samples.append(pixels[y * width + x])
+    med_r = int(sorted(c[0] for c in corner_samples)[len(corner_samples) // 2])
+    med_g = int(sorted(c[1] for c in corner_samples)[len(corner_samples) // 2])
+    med_b = int(sorted(c[2] for c in corner_samples)[len(corner_samples) // 2])
 
-    if not raw_counts:
-        # Fallback for monochrome / black-and-white icon
-        return [("#475569", (71, 85, 105), 1.0)]
+    if med_r > 246 and med_g > 246 and med_b > 246:
+        bg_rgb = (255, 255, 255)
+        bg_hex = "#ffffff"
+    elif med_r < 12 and med_g < 12 and med_b < 12:
+        bg_rgb = (0, 0, 0)
+        bg_hex = "#000000"
+    else:
+        bg_rgb = (med_r, med_g, med_b)
+        bg_hex = f"#{med_r:02x}{med_g:02x}{med_b:02x}"
 
-    # Cluster colors by Euclidean distance
-    clusters = []  # list of [r, g, b, count, score]
-    for (r, g, b), count in sorted(raw_counts.items(), key=lambda x: -x[1]):
-        _, _, s = colorsys.rgb_to_hls(r / 255.0, g / 255.0, b / 255.0)
-        # Prioritize saturated brand colors over dull grays
-        vibrancy_weight = count * (s * 1.8 + 0.25)
-        merged = False
-        for i, (cr, cg, cb, cw, cs) in enumerate(clusters):
-            dist = ((r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2) ** 0.5
-            if dist < 32:
-                clusters[i] = (cr, cg, cb, cw + count, cs + vibrancy_weight)
-                merged = True
+    # 2. Cluster pixels into dominant color regions
+    clusters = []  # list of [ [r, g, b], count ]
+    for r, g, b in pixels:
+        matched = False
+        for c in clusters:
+            dist = ((r - c[0][0]) ** 2 + (g - c[0][1]) ** 2 + (b - c[0][2]) ** 2) ** 0.5
+            if dist < 36.0:
+                c[0][0] = (c[0][0] * c[1] + r) / (c[1] + 1)
+                c[0][1] = (c[0][1] * c[1] + g) / (c[1] + 1)
+                c[0][2] = (c[0][2] * c[1] + b) / (c[1] + 1)
+                c[1] += 1
+                matched = True
                 break
-        if not merged:
-            clusters.append((r, g, b, count, vibrancy_weight))
+        if not matched:
+            clusters.append([[float(r), float(g), float(b)], 1])
 
-    clusters.sort(key=lambda c: -c[4])
+    total = len(pixels)
+    clusters.sort(key=lambda c: -c[1])
 
-    results = []
-    for r, g, b, count, score in clusters[:5]:
-        hex_color = f"#{r:02x}{g:02x}{b:02x}"
-        results.append((hex_color, (r, g, b), score))
+    # Filter out small noise (< 3.0% area)
+    valid_clusters = [c for c in clusters if (c[1] / total) * 100 >= 3.0]
 
-    return results
+    # Separate foreground from background
+    fg_clusters = []
+    for c in valid_clusters:
+        dist_to_bg = ((c[0][0] - bg_rgb[0]) ** 2 + (c[0][1] - bg_rgb[1]) ** 2 + (c[0][2] - bg_rgb[2]) ** 2) ** 0.5
+        if dist_to_bg >= 35.0:
+            fg_clusters.append(c)
+
+    if not fg_clusters:
+        return [(bg_hex, bg_rgb, 1.0)]
+
+    primary_fg = fg_clusters[0][0]
+
+    # Filter out anti-aliasing edge blends and merge similar foreground shades
+    distinct_fg = [primary_fg]
+    for c in fg_clusters[1:]:
+        if any(((c[0][0] - dfg[0]) ** 2 + (c[0][1] - dfg[1]) ** 2 + (c[0][2] - dfg[2]) ** 2) ** 0.5 < 32.0 for dfg in distinct_fg):
+            continue
+        if not is_blend(c[0], primary_fg, bg_rgb):
+            blend_with_any = any(is_blend(c[0], dfg, bg_rgb) for dfg in distinct_fg)
+            if not blend_with_any:
+                distinct_fg.append(c[0])
+
+    palette_entries = []
+    # Add distinct foreground colors
+    for dfg in distinct_fg[:3]:
+        r, g, b = int(round(dfg[0])), int(round(dfg[1])), int(round(dfg[2]))
+        if r > 246 and g > 246 and b > 246:
+            palette_entries.append(("#ffffff", (255, 255, 255), 1.0))
+        else:
+            palette_entries.append((f"#{r:02x}{g:02x}{b:02x}", (r, g, b), 1.0))
+
+    # Add background color if distinct
+    if bg_hex not in [p[0] for p in palette_entries]:
+        palette_entries.append((bg_hex, bg_rgb, 1.0))
+
+    # Sort so vibrant chromatic colors precede neutrals (#ffffff / #000000)
+    palette_entries.sort(key=lambda p: (
+        1 if p[0].lower() in ('#ffffff', '#000000', '#fefefe', '#fdfdfd', '#fef6f6')
+        else -abs(p[1][0] - p[1][1]) - abs(p[1][1] - p[1][2])
+    ))
+
+    return palette_entries[:4]
 
 
 def ansi_swatch(r: int, g: int, b: int) -> str:
@@ -169,6 +225,7 @@ def main():
 
     primary_hex, (pr, pg, pb), _ = palette[0]
     secondary_hex, (sr, sg, sb), _ = palette[1] if len(palette) > 1 else palette[0]
+    palette_hex_list = [p[0] for p in palette]
 
     # Calculate contrast
     lum = relative_luminance(pr, pg, pb)
@@ -181,11 +238,12 @@ def main():
     print("=" * 64)
     print(f" Source: {resolved_source}")
     print("\n Dominant Colors Extracted:")
-    for idx, (hex_col, (r, g, b), score) in enumerate(palette[:4], 1):
+    for idx, (hex_col, (r, g, b), _) in enumerate(palette, 1):
         swatch = ansi_swatch(r, g, b)
-        print(f"   {swatch} {hex_col}  (RGB: {r:3d}, {g:3d}, {b:3d})  [rank #{idx}]")
+        print(f"   {swatch} {hex_col}  (RGB: {r:3d}, {g:3d}, {b:3d})  [color #{idx}]")
 
     print(f"\n Recommended Primary Brand Color: {primary_hex}")
+    print(f" Extracted Brand Palette: {palette_hex_list}")
     print(f" Badge Text Contrast: {recommended_text} (White contrast: {white_contrast:.1f}:1, Dark contrast: {dark_contrast:.1f}:1)")
 
     # Construct suggested TypeScript object
@@ -204,6 +262,7 @@ def main():
         name: '{name}',
         developer: '{dev}',
         brandColor: '{primary_hex}',
+        brandPalette: {palette_hex_list!r},
         badgeLetter: '{badge_letter}',
         popularModels: {models_list!r},
         summary: 'Official companion app for {name} thermal printers.',

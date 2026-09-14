@@ -35,6 +35,21 @@
         receipt: 'Receipt Printer',
     };
 
+    function getBadgeBackground(palette: string[] | undefined, fallback: string): string {
+        if (!palette || palette.length === 0) return fallback;
+        const chromatic = palette.filter(c => {
+            const hex = c.replace('#', '');
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+            return !(r > 240 && g > 240 && b > 240);
+        });
+        if (chromatic.length >= 2) {
+            return `linear-gradient(135deg, ${chromatic[0]} 0%, ${chromatic[1]} 100%)`;
+        }
+        return chromatic[0] || fallback;
+    }
+
     const profileEntries = $derived.by(() => {
         const seen = new Set<string>();
         const list: Array<{ profile: (typeof PRINTER_PROFILES)[number]; opentlp: ReturnType<typeof matchOpenTlpDevice> }> = [];
@@ -92,6 +107,7 @@
                     name: app,
                     developer: 'Third-party app',
                     brandColor: '#475569',
+                    brandPalette: ['#475569', '#64748b'],
                     badgeLetter: app.charAt(0).toUpperCase(),
                     popularModels: [],
                     summary: `Printers supported by the ${app} mobile app.`,
@@ -312,13 +328,23 @@
                     }}
                 >
                     <div class="app-card-top">
-                        <div class="app-badge" style:background={app.brandColor}>
+                        <div
+                            class="app-badge"
+                            style:background={getBadgeBackground(app.brandPalette, app.brandColor)}
+                        >
                             <span>{app.badgeLetter}</span>
                         </div>
                         <div class="app-header-text">
                             <strong class="app-name">{app.name}</strong>
                             <span class="app-dev">{app.developer}</span>
                         </div>
+                        {#if app.brandPalette && app.brandPalette.length > 0}
+                            <div class="palette-swatches" title="Official app brand palette: {app.brandPalette.join(', ')}" aria-hidden="true">
+                                {#each app.brandPalette as col}
+                                    <span class="palette-dot" style:background={col}></span>
+                                {/each}
+                            </div>
+                        {/if}
                     </div>
                     {#if app.popularModels && app.popularModels.length > 0}
                         <div class="app-models-pills">
@@ -441,11 +467,21 @@
             </button>
             <div class="active-app-heading">
                 {#if activeAppInfo}
-                    <span class="mini-app-badge" style:background={activeAppInfo.brandColor}>
+                    <span
+                        class="mini-app-badge"
+                        style:background={getBadgeBackground(activeAppInfo.brandPalette, activeAppInfo.brandColor)}
+                    >
                         {activeAppInfo.badgeLetter}
                     </span>
                     <strong>{activeAppInfo.name}</strong>
                     <span class="active-app-dev">({activeAppInfo.developer})</span>
+                    {#if activeAppInfo.brandPalette && activeAppInfo.brandPalette.length > 0}
+                        <div class="palette-swatches" title="Official brand palette: {activeAppInfo.brandPalette.join(', ')}" aria-hidden="true">
+                            {#each activeAppInfo.brandPalette as col}
+                                <span class="palette-dot" style:background={col}></span>
+                            {/each}
+                        </div>
+                    {/if}
                     {#if activeAppInfo.playStoreUrl || activeAppInfo.appStoreUrl}
                         <div class="active-store-links">
                             {#if activeAppInfo.playStoreUrl}
@@ -805,6 +841,21 @@
         display: flex;
         flex-direction: column;
         min-width: 0;
+        flex: 1;
+    }
+    .palette-swatches {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        margin-left: auto;
+        flex-shrink: 0;
+    }
+    .palette-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        border: 1px solid rgba(0, 0, 0, 0.15);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
     .app-name {
         font-size: 13px;
