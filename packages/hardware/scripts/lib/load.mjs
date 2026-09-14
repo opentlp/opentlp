@@ -19,6 +19,7 @@ import { parse } from 'yaml';
 export const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 export const DEVICES_DIR = join(ROOT, 'devices');
 export const FAMILIES_DIR = join(ROOT, 'families');
+export const APPS_DIR = join(ROOT, 'apps');
 export const SITE_DIR = join(ROOT, 'site');
 
 /** @typedef {{ path: string, device: any, body: string }} LoadedDevice */
@@ -46,6 +47,18 @@ export async function loadDevices() {
  */
 export async function loadFamilies() {
     return loadPages(FAMILIES_DIR);
+}
+
+/**
+ * Every companion mobile app page.
+ *
+ * Same page format as a device and family — front matter plus prose — mapping
+ * commercial companion apps to hardware lines and protocol families.
+ *
+ * @returns {Promise<{ devices: LoadedDevice[], errors: string[] }>}
+ */
+export async function loadApps() {
+    return loadPages(APPS_DIR);
 }
 
 async function loadPages(root) {

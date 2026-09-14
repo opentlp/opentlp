@@ -19,6 +19,25 @@ export interface OpenTlpDevice {
     status?: 'verified' | 'reported' | 'unverified' | null;
 }
 
+export interface OpenTlpApp {
+    id: string;
+    name: string;
+    developer: string;
+    summary?: string | null;
+    brandColor: string;
+    brandPalette: readonly string[];
+    badgeLetter: string;
+    platforms: {
+        android?: { package?: string; url?: string };
+        ios?: { id?: string | number; url?: string };
+    };
+    protocols?: readonly string[];
+    replacesApps?: readonly string[];
+    popularModels?: readonly string[];
+    isMultiDevice?: boolean;
+    status?: 'verified' | 'reported' | 'unverified' | null;
+}
+
 export interface OpenTlpSnapshot {
     source: string;
     schemaVersion: number;
@@ -26,11 +45,13 @@ export interface OpenTlpSnapshot {
     licence: string;
     count: number;
     devices: readonly OpenTlpDevice[];
+    apps?: readonly OpenTlpApp[];
 }
 
 export const OPENTLP_CATALOGUE_URL = 'https://opentlp.github.io/table-of-hardware/';
 export const OPENTLP_SNAPSHOT: OpenTlpSnapshot = rawSnapshot;
 export const OPENTLP_DEVICES: readonly OpenTlpDevice[] = OPENTLP_SNAPSHOT.devices;
+export const OPENTLP_APPS: readonly OpenTlpApp[] = OPENTLP_SNAPSHOT.apps ?? [];
 
 const devicesById = new Map<string, OpenTlpDevice>();
 for (const dev of OPENTLP_DEVICES) {

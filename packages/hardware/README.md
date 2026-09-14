@@ -12,7 +12,7 @@ npm run validate
 npm run build
 ```
 
-`npm run build` writes the full `devices.json` and `families.json` exports plus a
+`npm run build` writes the full `devices.json`, `families.json`, and `apps.json` exports plus a
 small runtime catalogue used by OpenTLP Studio. The public website is maintained
 in the separate `opentlp/table-of-hardware` repository and reads these source
 files at build time.

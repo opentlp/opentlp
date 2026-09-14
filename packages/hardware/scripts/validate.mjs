@@ -14,7 +14,7 @@ import { join, basename, dirname } from 'node:path';
 // $schema: draft/2020-12 and the default build rejects it outright.
 import Ajv from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
-import { loadDevices, loadFamilies, ROOT } from './lib/load.mjs';
+import { loadDevices, loadFamilies, loadApps, ROOT } from './lib/load.mjs';
 import { PROJECTS } from './lib/projects.mjs';
 import { sanitiseSvg } from './lib/svg.mjs';
 
@@ -25,9 +25,13 @@ const validateSchema = ajv.compile(schema);
 const familySchema = JSON.parse(await readFile(join(ROOT, 'schema/family.schema.json'), 'utf8'));
 const validateFamily = ajv.compile(familySchema);
 
+const appSchema = JSON.parse(await readFile(join(ROOT, 'schema/app.schema.json'), 'utf8'));
+const validateApp = ajv.compile(appSchema);
+
 const { devices, errors } = await loadDevices();
 const { devices: families, errors: familyErrors } = await loadFamilies();
-const problems = [...errors, ...familyErrors];
+const { devices: apps, errors: appErrors } = await loadApps();
+const problems = [...errors, ...familyErrors, ...appErrors];
 /** Not fatal: things a reviewer should look at, not things that block a merge. */
 const warnings = [];
 
@@ -80,16 +84,37 @@ for (const { path, device: family, body } of families) {
     }
 }
 
+const appIds = new Set();
+for (const { path, device: app, body } of apps) {
+    for (const error of validateApp(app) ? [] : validateApp.errors) {
+        problems.push(`${path}: ${error.instancePath || '/'} ${error.message}`);
+    }
+    if (/^#[^#]/.test(body)) {
+        problems.push(`${path}: page body starts with an H1 — the title is generated, start at "## "`);
+    }
+    if (typeof app.id !== 'string') continue;
+    if (appIds.has(app.id)) problems.push(`${path}: app id "${app.id}" is used twice`);
+    appIds.add(app.id);
+    if (basename(path) !== `${app.id}.md`) {
+        problems.push(`${path}: should be named ${app.id}.md to match its id`);
+    }
+    for (const proto of app.protocols ?? []) {
+        if (!familyIds.has(proto)) {
+            problems.push(`${path}: references unknown protocol family "${proto}"`);
+        }
+    }
+}
+
 // Every page renders flat into site/, so an internal link is <id>.html and its
-// target is either a device or a family. A wiki's cross-references rot quietly
+// target is a device, family, or app. A wiki's cross-references rot quietly
 // otherwise — a renamed page leaves working-looking links that 404.
 //
 // Any local link, not only .html. A repo-relative one such as CONTRIBUTING.md
 // resolves against the site root, where no such file was ever built; that is a
 // 404 nobody notices until a reader hits it.
-const pageIds = new Set([...devices.map(d => d.device.id), ...familyIds].filter(Boolean));
+const pageIds = new Set([...devices.map(d => d.device.id), ...familyIds, ...appIds].filter(Boolean));
 
-for (const { path, body } of [...devices, ...families]) {
+for (const { path, body } of [...devices, ...families, ...apps]) {
     for (const [, target] of body.matchAll(/\]\((?!https?:|mailto:|#)([^)\s]+)\)/g)) {
         const [file] = target.split('#');
         if (!file) continue;
@@ -276,6 +301,6 @@ if (problems.length) {
     process.exit(1);
 }
 console.log(
-    `${devices.length} device(s) and ${families.length} family page(s) valid` +
+    `${devices.length} device(s), ${families.length} family page(s), and ${apps.length} app page(s) valid` +
     `${warnings.length ? `, ${warnings.length} warning(s)` : ''}.`
 );

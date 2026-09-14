@@ -886,20 +886,16 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 38px;
-        height: 38px;
-        border-radius: 9px;
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
         font-weight: 700;
         font-size: 16px;
         flex-shrink: 0;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.14);
-        border: 1px solid rgba(0, 0, 0, 0.08);
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        border: 1px solid transparent;
     }
     .app-badge.light-bg {
-        border: 1px solid rgba(0, 0, 0, 0.16);
-        text-shadow: none;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+        border-color: var(--border);
     }
     .app-header-text {
         display: flex;
@@ -1131,9 +1127,10 @@
         color: #ffffff;
         font-size: 11px;
         font-weight: 700;
+        border: 1px solid transparent;
     }
     .mini-app-badge.light-bg {
-        border: 1px solid rgba(0, 0, 0, 0.16);
+        border-color: var(--border);
     }
     .active-app-dev {
         font-size: 11px;

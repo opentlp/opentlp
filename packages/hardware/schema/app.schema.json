@@ -1,0 +1,172 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opentlp.github.io/table-of-hardware/schema/app.schema.json",
+  "title": "OpenTLP companion mobile app",
+  "description": "The front matter of one companion mobile app page — official applications shipped or recommended by thermal printer manufacturers.\n\nIn the real world, users frequently identify their thermal printer by the companion mobile app on the packaging or in the manual (e.g. 'Marklife', 'Tiny Print', 'Pocket Printer', 'WalkPrint', 'Fun Print', 'NIIMBOT', 'Phomemo', 'PeriPage', 'FlashLabel', 'Labelife', 'Munbyn Print').\n\nThis record maps that user-facing application to the underlying wire protocols, hardware models, app stores, and known vendor packaging.",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "developer",
+    "brand_color",
+    "brand_palette",
+    "badge_letter",
+    "sources"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "App slug matching the markdown file name (e.g. 'marklife', 'pocket-printer'). Permanent key."
+    },
+    "name": {
+      "type": "string",
+      "description": "Official public application name."
+    },
+    "developer": {
+      "type": "string",
+      "description": "Developer entity, corporate distributor, or ODM."
+    },
+    "summary": {
+      "type": "string",
+      "maxLength": 300,
+      "description": "Short summary of the app and the printer classes it addresses."
+    },
+    "brand_color": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$",
+      "description": "Primary brand accent color in hex notation."
+    },
+    "brand_palette": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 4,
+      "items": {
+        "type": "string",
+        "pattern": "^#[0-9a-fA-F]{6}$"
+      },
+      "description": "Icon color palette (2 to 4 colors). palette[0] specifies the icon canvas/background color, while subsequent entries specify the foreground logo elements."
+    },
+    "badge_letter": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1,
+      "description": "Single letter used for the app's monogram badge."
+    },
+    "platforms": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "android": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "package": {
+              "type": "string",
+              "description": "Android application package ID (e.g. 'com.feioou.deliprint.yxq')."
+            },
+            "url": {
+              "type": "string",
+              "format": "uri",
+              "description": "Official Google Play Store URL."
+            }
+          }
+        },
+        "ios": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": ["string", "integer"],
+              "description": "Apple App Store numerical ID (e.g. 1540535142)."
+            },
+            "url": {
+              "type": "string",
+              "format": "uri",
+              "description": "Official Apple App Store URL."
+            }
+          }
+        }
+      }
+    },
+    "protocols": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Protocol families spoken by hardware compatible with this app."
+    },
+    "replaces_apps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Application names, white-label rebrands, or legacy titles aliased or replaced by this app."
+    },
+    "popular_models": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Prominent hardware models driven by this app."
+    },
+    "is_multi_device": {
+      "type": "boolean",
+      "description": "True if the app communicates across multiple distinct hardware driver protocols (e.g. Pocket Printer serving both 58mm continuous and L13 label printer; Phomemo serving both M02 and M110)."
+    },
+    "status": {
+      "enum": [
+        "verified",
+        "reported",
+        "unverified"
+      ],
+      "description": "Verification status of the app profile and protocol association."
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "vendor-doc",
+            "protocol-capture",
+            "oss-project",
+            "user-report",
+            "standard",
+            "catalogue"
+          ]
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "title": {
+          "type": "string"
+        },
+        "licence": {
+          "type": "string"
+        },
+        "retrieved": {
+          "type": "string",
+          "format": "date"
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

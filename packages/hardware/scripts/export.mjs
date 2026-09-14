@@ -8,7 +8,7 @@
 
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { loadDevices, loadFamilies, ROOT } from './lib/load.mjs';
+import { loadDevices, loadFamilies, loadApps, ROOT } from './lib/load.mjs';
 
 const EXPORT_VERSION = 1;
 const DIST_DIR = join(ROOT, 'dist');
@@ -16,7 +16,8 @@ const GENERATED_DIR = join(ROOT, 'generated');
 
 const { devices: loadedDevices, errors } = await loadDevices();
 const { devices: loadedFamilies, errors: familyErrors } = await loadFamilies();
-errors.push(...familyErrors);
+const { devices: loadedApps, errors: appErrors } = await loadApps();
+errors.push(...familyErrors, ...appErrors);
 
 if (errors.length) {
     for (const error of errors) console.error(`error ${error}`);
@@ -27,6 +28,9 @@ const devices = loadedDevices
     .map(({ device }) => device)
     .sort((a, b) => a.id.localeCompare(b.id));
 const families = loadedFamilies
+    .map(({ device }) => device)
+    .sort((a, b) => a.id.localeCompare(b.id));
+const apps = loadedApps
     .map(({ device }) => device)
     .sort((a, b) => a.id.localeCompare(b.id));
 const generated = new Date().toISOString().slice(0, 10);
@@ -45,6 +49,13 @@ const familyExport = {
     count: families.length,
     families
 };
+const appExport = {
+    version: EXPORT_VERSION,
+    generated,
+    licence: 'CC0-1.0',
+    count: apps.length,
+    apps
+};
 const catalogue = {
     source: 'packages/hardware/devices',
     schemaVersion: EXPORT_VERSION,
@@ -62,6 +73,21 @@ const catalogue = {
         replacesApps: device.protocol?.replaces_apps ?? (resolveApp(device) ? [resolveApp(device)] : []),
         kind: resolveKind(device),
         status: device.status ?? null
+    })),
+    apps: apps.map(app => ({
+        id: app.id,
+        name: app.name,
+        developer: app.developer,
+        summary: app.summary ?? null,
+        brandColor: app.brand_color,
+        brandPalette: app.brand_palette,
+        badgeLetter: app.badge_letter,
+        platforms: app.platforms ?? {},
+        protocols: app.protocols ?? [],
+        replacesApps: app.replaces_apps ?? [],
+        popularModels: app.popular_models ?? [],
+        isMultiDevice: app.is_multi_device ?? false,
+        status: app.status ?? null
     }))
 };
 
@@ -72,6 +98,7 @@ await mkdir(GENERATED_DIR, { recursive: true });
 
 await writeJson(join(DIST_DIR, 'devices.json'), deviceExport);
 await writeJson(join(DIST_DIR, 'families.json'), familyExport);
+await writeJson(join(DIST_DIR, 'apps.json'), appExport);
 await writeJson(join(DIST_DIR, 'catalogue.json'), catalogue);
 await writeFile(
     join(GENERATED_DIR, 'catalogue.ts'),
@@ -80,7 +107,7 @@ await writeFile(
     'utf8'
 );
 
-console.log(`Built ${devices.length} device and ${families.length} family records.`);
+console.log(`Built ${devices.length} device, ${families.length} family, and ${apps.length} app records.`);
 
 async function writeJson(path, value) {
     await writeFile(path, JSON.stringify(value, null, 2) + '\n', 'utf8');

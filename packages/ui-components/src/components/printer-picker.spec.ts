@@ -126,15 +126,18 @@ describe('Companion App Directory (KNOWN_COMPANION_APPS)', () => {
 
         // Marklife has the salmon foreground shape on a white background and verified play store URL
         const marklifeApp = KNOWN_COMPANION_APPS.find(a => a.id === 'marklife');
-        expect(marklifeApp?.brandPalette).toEqual(['#fb4e48', '#ffffff']);
+        expect(marklifeApp?.brandPalette).toEqual(['#ffffff', '#fb4e48']);
         expect(marklifeApp?.playStoreUrl).toBe('https://play.google.com/store/apps/details?id=com.feioou.deliprint.yxq');
 
-        // Munbyn and Labelife have white backgrounds with their brand color as foreground
+        // Munbyn, Labelife, NIIMBOT, WalkPrint, Tiny Print, Phomemo have white backgrounds with their brand color as foreground
         const munbynApp = KNOWN_COMPANION_APPS.find(a => a.id === 'munbyn_print');
         expect(munbynApp?.brandPalette).toEqual(['#ffffff', '#ff4713']);
 
         const labelifeApp = KNOWN_COMPANION_APPS.find(a => a.id === 'labelife');
         expect(labelifeApp?.brandPalette).toEqual(['#ffffff', '#3d81f8']);
+
+        const niimbotApp = KNOWN_COMPANION_APPS.find(a => a.id === 'niimbot');
+        expect(niimbotApp?.brandPalette).toEqual(['#ffffff', '#fc4840', '#b6b6b6']);
     });
 
     it('accurately configures Pocket Printer for Karsten International hardware', () => {
