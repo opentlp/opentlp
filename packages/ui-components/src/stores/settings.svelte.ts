@@ -47,6 +47,10 @@ export const SIDEBAR = { minW: 180, maxW: 520, leftDefault: 244, rightDefault: 3
 
 export const PRINTER_PROFILES: PrinterModelProfile[] = new PrintManager().getAvailablePrinterProfiles();
 
+import { AUTO_APP_PROFILES } from '../data/auto-profiles';
+export { AUTO_APP_PROFILES };
+
+
 export const DEFAULT_PRINTER_CAPS: Record<string, any> = {
     'none': { canvasHeightPx: 384, dpmm: 8, physical: { headToCutterPx: 100 } },
     'unknown': { canvasHeightPx: 384, dpmm: 8, physical: { headToCutterPx: 100 } }
@@ -54,6 +58,10 @@ export const DEFAULT_PRINTER_CAPS: Record<string, any> = {
 
 for (const profile of PRINTER_PROFILES) {
     DEFAULT_PRINTER_CAPS[profile.id] = profile.capabilities;
+}
+
+for (const auto of AUTO_APP_PROFILES) {
+    DEFAULT_PRINTER_CAPS[auto.id] = auto.capabilities;
 }
 
 const STORAGE_KEY = 'blewebler2.settings.v1';

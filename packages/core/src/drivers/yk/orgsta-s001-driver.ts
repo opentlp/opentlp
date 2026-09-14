@@ -27,6 +27,11 @@ export const ORGSTA_S001_MODELS: PrinterModelProfile[] = [{
 export class OrgstaS001Driver implements IPrinterDriver {
     readonly name = 'Orgsta S001 (YK Astra P1)';
     readonly driverType = 'hardware' as const;
+    readonly app = 'Orgsta';
+    readonly replacesApps = ['Orgsta', 'FlashLabel'] as const;
+    readonly defaultKind = 'label' as const;
+    readonly supportedKinds = ['label'] as const;
+    readonly supportedTransports = ['bluetooth-classic', 'usb-serial'] as const;
     readonly connectionRequirements = { services: [], namePrefixes: ['S001'] };
     readonly supportedModels = ORGSTA_S001_MODELS;
 

@@ -33,6 +33,11 @@ import {
 export class PeriPageDriver implements IPrinterDriver {
     readonly name = 'PeriPage raw GS v 0';
     readonly driverType = 'hardware' as const;
+    readonly app = 'PeriPage';
+    readonly replacesApps = ['PeriPage'] as const;
+    readonly defaultKind = 'pocket' as const;
+    readonly supportedKinds = ['pocket'] as const;
+    readonly supportedTransports = ['bluetooth-le', 'bluetooth-classic', 'usb-serial', 'usb'] as const;
 
     readonly connectionRequirements = {
         services: [PERIPAGE_BLE_ENDPOINTS.service],

@@ -46,6 +46,11 @@ export const PHOMEMO_M04_MODELS: PrinterModelProfile[] = MODELS.map(model => ({
 export class PhomemoM04Driver implements IPrinterDriver {
     readonly name = 'Phomemo M04S/M04AS';
     readonly driverType = 'hardware' as const;
+    readonly app = 'Phomemo';
+    readonly replacesApps = ['Phomemo'] as const;
+    readonly defaultKind = 'pocket' as const;
+    readonly supportedKinds = ['pocket'] as const;
+    readonly supportedTransports = ['bluetooth-le', 'bluetooth-classic', 'usb-serial'] as const;
     readonly connectionRequirements = { services: [SERVICE], namePrefixes: MODELS.map(model => model.model) };
     readonly supportedModels = PHOMEMO_M04_MODELS;
 

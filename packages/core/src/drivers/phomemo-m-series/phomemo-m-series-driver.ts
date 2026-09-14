@@ -49,6 +49,11 @@ export const PHOMEMO_M_SERIES_MODELS: PrinterModelProfile[] = MODELS.map(model =
 export class PhomemoMSeriesDriver implements IPrinterDriver {
     readonly name = 'Phomemo general M-series';
     readonly driverType = 'hardware' as const;
+    readonly app = 'Phomemo';
+    readonly replacesApps = ['Phomemo', 'Print Master'] as const;
+    readonly defaultKind = 'label' as const;
+    readonly supportedKinds = ['label'] as const;
+    readonly supportedTransports = ['bluetooth-le', 'bluetooth-classic', 'usb-serial'] as const;
     readonly connectionRequirements = {
         services: [SERVICE],
         namePrefixes: MODELS.flatMap(model => [model.model, ...(model.bluetoothNames ?? [])])

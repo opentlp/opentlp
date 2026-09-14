@@ -111,15 +111,30 @@ if (l13) {
         'MUNBYN L13 Label Printer',
         'Luckjingle L13 Mini Label Maker',
         'DP-L13',
-        'Silvercrest DP-L13'
+        'Silvercrest DP-L13',
+        'Pocket Printer L13',
+        'Karsten International',
+        'Karsten Pocket Printer',
+        'Crafts&Co',
+        'Fichero'
     ];
+    l13.app = 'Pocket Printer';
+    l13.replacesApps = ['Pocket Printer', 'Pocket Print'];
+    l13.kind = 'label';
+    l13.supportedKinds = ['label'];
+    l13.supportedTransports = ['bluetooth-le', 'bluetooth-classic', 'usb-serial'];
     l13.connectionHints = {
         bleHint: 'Turn on your printer, click Connect, and select your device (e.g. L13_... or L13_..._BLE) in the popup list.',
         bluetoothClassicHint: 'Select the entry starting with "L13_" (do NOT select "L13_..._BLE").'
     };
     l13.notes = `One printer sold under several names, none of them Marklife's own.
-If a label maker is 15 mm, 203 dpi and answers to \`L13\`, it is very likely this
+If a label maker is 15 mm, 203 dpi and answers to \`L13\` or \`DP-L13\`, it is very likely this
 machine whatever the box says.
+
+The companion app is "Pocket Printer" by Karsten International B.V. (often sold at Action or Lidl under
+Silvercrest, Crafts&Co, or Fichero brands). The app offers two device choices:
+1. "Label Printer" — this 15 mm Marklife-legacy L13 unit.
+2. "Pocket Printer" — a wider continuous 58 mm thermal pocket printer.
 
 The Silvercrest version is Lidl's house brand and carries no model number on the
 packaging; \`DP-L13\` is what the firmware reports.
@@ -244,6 +259,11 @@ export class MarklifeDriver implements IPrinterDriver {
     // this driver so the disconnected/simulated caps and the connected caps
     // agree (density range, head-to-cutter distance, etc.).
     public readonly supportedModels: PrinterModelProfile[];
+    public readonly app: string;
+    public readonly replacesApps: readonly string[];
+    public readonly defaultKind = 'label' as const;
+    public readonly supportedKinds = ['label'] as const;
+    public readonly supportedTransports = ['bluetooth-le', 'bluetooth-classic', 'usb-serial'] as const;
 
     public readonly connectionHints: ConnectionHints = {
         bleHint: 'Turn on your printer, click Connect, and select your device in the popup list.',
@@ -268,6 +288,8 @@ export class MarklifeDriver implements IPrinterDriver {
 
     constructor(public readonly dialect: MarklifeDialect = 'auto') {
         this.name = dialect === 'legacy' ? "Marklife-Legacy-L11" : "Marklife-Protocol-0x1F";
+        this.app = dialect === 'legacy' ? 'Pocket Printer' : 'Marklife';
+        this.replacesApps = dialect === 'legacy' ? ['Pocket Printer', 'Pocket Print'] : ['Marklife'];
         const isLegacy = (m: PrinterModelProfile) =>
             m.model === 'L13' || m.model === 'LP90' || m.id === 'marklife_l13' || m.id === 'marklife_lp90';
         if (dialect === 'legacy') {

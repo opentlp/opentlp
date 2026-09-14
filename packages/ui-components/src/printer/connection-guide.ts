@@ -149,7 +149,8 @@ export function resolvePrinterProfile(printerModel?: PrinterModelProfile | strin
     if (match) return match;
 
     // 4. Try PrintManager.getDriverForModel
-    const driver = new PrintManager().getDriverForModel(printerModel);
+    const pm = new PrintManager();
+    const driver = pm.getDriverForModel(printerModel);
     if (driver) {
         const found = driver.supportedModels?.find(m =>
             m.id.toLowerCase() === query ||
@@ -162,6 +163,23 @@ export function resolvePrinterProfile(printerModel?: PrinterModelProfile | strin
                 ? { ...found, connectionHints: driver.connectionHints }
                 : found;
         }
+    }
+
+    // 5. Try resolving by app name or auto: app profile
+    const appQuery = query.startsWith('auto:') ? query.replace('auto:', '').replace(/_/g, ' ') : query;
+    const appDriver = pm.getDriverForApp(appQuery);
+    if (appDriver) {
+        const firstModel = appDriver.supportedModels?.[0];
+        return {
+            id: printerModel,
+            brand: appDriver.app ?? appDriver.name,
+            model: 'Auto-detect',
+            capabilities: firstModel?.capabilities ?? { canvasHeightPx: 384, dpmm: 8, maxDensity: 1, supportsSpeedMode: false, colorSupport: { type: 'monochrome' } },
+            app: appDriver.app,
+            kind: appDriver.defaultKind,
+            supportedTransports: appDriver.supportedTransports,
+            connectionHints: appDriver.connectionHints
+        };
     }
 
     return undefined;
@@ -184,6 +202,7 @@ export function getTransportGuidance(
 
     const profile = resolvePrinterProfile(printerModel);
     const hints = profile?.connectionHints;
+    const supported = profile?.supportedTransports;
 
     // 1. DUMMY / SIMULATOR
     if (isDummy) {
@@ -196,6 +215,15 @@ export function getTransportGuidance(
 
     // 2. BLUETOOTH BLE (Direct Web Bluetooth / Capacitor BLE)
     if (isBle) {
+        if (supported && !supported.includes('bluetooth-le')) {
+            return {
+                tier: 'discouraged',
+                badge: 'Unsupported by printer',
+                discouragedReason: `${profile?.brand ?? 'This printer'} does not support Bluetooth LE.`,
+                warning: 'This printer model does not have Bluetooth LE connectivity.'
+            };
+        }
+
         // Browser / runtime environment does not support Web Bluetooth
         if (platform.environment === 'browser' && (!platform.supportsWebBluetooth || isAvailable === false)) {
             return {
@@ -231,6 +259,14 @@ export function getTransportGuidance(
 
     // 3. SERIAL (USB CABLE & BLUETOOTH CLASSIC RFCOMM / SPP)
     if (isSerial) {
+        if (supported && !supported.includes('bluetooth-classic') && !supported.includes('usb-serial')) {
+            return {
+                tier: 'discouraged',
+                badge: 'Unsupported by printer',
+                discouragedReason: `${profile?.brand ?? 'This printer'} only supports Bluetooth LE; its USB port does not provide serial data.`,
+                warning: 'This printer hardware does not support Serial or Bluetooth Classic connections.'
+            };
+        }
         // Serial is recommended on Linux (where BLE is flaky)
         // OR in browsers where Web Bluetooth is unsupported (e.g. Firefox)
         const isBleUnsupportedInBrowser = platform.environment === 'browser' && !platform.supportsWebBluetooth;
@@ -277,6 +313,15 @@ export function getTransportGuidance(
 
     // 4. DIRECT USB (WebUSB / Vendor USB)
     if (isUsb) {
+        if (supported && !supported.includes('usb')) {
+            return {
+                tier: 'discouraged',
+                badge: 'Unsupported by printer',
+                discouragedReason: `${profile?.brand ?? 'This printer'} does not support Direct WebUSB. For USB cable connections, use Serial (USB & Bluetooth) above if supported.`,
+                warning: 'This printer does not support Direct WebUSB.'
+            };
+        }
+
         if (platform.environment === 'browser' && (!platform.supportsWebUsb || isAvailable === false)) {
             return {
                 tier: 'discouraged',

@@ -36,6 +36,11 @@ export const CATPRINTER_MXW01_MODELS: PrinterModelProfile[] = MODELS.map(model =
 export class CatPrinterMxw01Driver implements IPrinterDriver {
     readonly name = 'Catprinter (V5X/MXW01 bulk raster)';
     readonly driverType = 'hardware' as const;
+    readonly app = 'WalkPrint';
+    readonly replacesApps = ['WalkPrint'] as const;
+    readonly defaultKind = 'pocket' as const;
+    readonly supportedKinds = ['pocket'] as const;
+    readonly supportedTransports = ['bluetooth-le'] as const;
     readonly connectionRequirements = { services: [SERVICE, SERVICE_ALT], namePrefixes: [...MODELS] };
     readonly supportedModels = CATPRINTER_MXW01_MODELS;
 

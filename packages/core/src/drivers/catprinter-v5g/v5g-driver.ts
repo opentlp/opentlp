@@ -43,6 +43,11 @@ export const CATPRINTER_V5G_MODELS: PrinterModelProfile[] = MODELS.map(model => 
 export class CatPrinterV5gDriver implements IPrinterDriver {
     readonly name = 'Catprinter (V5G 0x51/0x78 dot raster)';
     readonly driverType = 'hardware' as const;
+    readonly app = 'WalkPrint';
+    readonly replacesApps = ['WalkPrint'] as const;
+    readonly defaultKind = 'pocket' as const;
+    readonly supportedKinds = ['pocket'] as const;
+    readonly supportedTransports = ['bluetooth-le'] as const;
     readonly connectionRequirements = { services: [SERVICE], namePrefixes: [...MODELS] };
     readonly supportedModels = CATPRINTER_V5G_MODELS;
 

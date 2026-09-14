@@ -27,6 +27,7 @@
     import {
         detectPlatform,
         getTransportGuidance,
+        resolvePrinterProfile,
         type GuidanceTier,
         type PlatformInfo
     } from '../printer/connection-guide';
@@ -71,7 +72,7 @@
     const selectedPrinterModel = $derived(settings.defaultPrinter || '');
 
     const currentModelProfile = $derived(
-        PRINTER_PROFILES.find(p => p.id === selectedPrinterModel)
+        resolvePrinterProfile(selectedPrinterModel) ?? PRINTER_PROFILES.find(p => p.id === selectedPrinterModel)
     );
     const modelReady = $derived(!!selectedPrinterModel && selectedPrinterModel !== 'none');
 
@@ -134,6 +135,13 @@
                 selectedPrinterModel || undefined,
                 lastTransportId ?? transport.type
             );
+            if (selectedPrinterModel.startsWith('auto:')) {
+                const detected = session.getActiveModelProfile();
+                if (detected && detected.id && !detected.id.startsWith('auto:')) {
+                    settings.defaultPrinter = detected.id;
+                    settings.save();
+                }
+            }
         } catch (err) {
             const e = toPrinterError(err);
             connectError = errorText(e);
@@ -217,6 +225,13 @@
                 option.isDummy ? undefined : selectedPrinterModel || undefined,
                 option.id
             );
+            if (selectedPrinterModel.startsWith('auto:')) {
+                const detected = session.getActiveModelProfile();
+                if (detected && detected.id && !detected.id.startsWith('auto:')) {
+                    settings.defaultPrinter = detected.id;
+                    settings.save();
+                }
+            }
         } catch (err) {
             const e = toPrinterError(err);
             // Cancelling the device chooser is a choice, not a failure. Showing

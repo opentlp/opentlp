@@ -39,6 +39,11 @@ export const PHOMEMO_P12_MODELS: PrinterModelProfile[] = MODELS.map(model => ({
 export class PhomemoP12Driver implements IPrinterDriver {
     readonly name = 'Phomemo P12/A30';
     readonly driverType = 'hardware' as const;
+    readonly app = 'Phomemo';
+    readonly replacesApps = ['Phomemo', 'Print Master'] as const;
+    readonly defaultKind = 'label' as const;
+    readonly supportedKinds = ['label'] as const;
+    readonly supportedTransports = ['bluetooth-le', 'bluetooth-classic', 'usb-serial'] as const;
     readonly connectionRequirements = { services: [SERVICE], namePrefixes: ['P12 PRO', 'P12PRO', 'P12', 'A30'] };
     readonly supportedModels = PHOMEMO_P12_MODELS;
     readonly connectionHints: ConnectionHints = {

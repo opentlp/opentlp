@@ -3,7 +3,7 @@ import type { PrinterModelProfile } from 'universal-label-core';
 
 export type CataloguePrinterProfile = Pick<
     PrinterModelProfile,
-    'id' | 'tohId' | 'brand' | 'model' | 'family' | 'aliases'
+    'id' | 'tohId' | 'brand' | 'model' | 'family' | 'aliases' | 'app' | 'replacesApps' | 'kind' | 'supportedKinds' | 'supportedTransports'
 >;
 
 export interface OpenTlpDevice {
@@ -13,6 +13,9 @@ export interface OpenTlpDevice {
     aliases?: readonly string[];
     rebadgeOf?: string | null;
     family?: string | null;
+    app?: string | null;
+    replacesApps?: readonly string[] | null;
+    kind?: string | null;
     status?: 'verified' | 'reported' | 'unverified' | null;
 }
 
@@ -131,21 +134,41 @@ export function getOpenTlpSearchTerms(profile: CataloguePrinterProfile, matched?
         }
     };
 
-    // Profile fields: brand, model, family, aliases
+    // Profile fields: brand, model, family, aliases, app, kind
     add(profile.brand);
     add(profile.model);
     add(profile.family);
+    add(profile.app);
+    if (profile.replacesApps) {
+        for (const app of profile.replacesApps) add(app);
+    }
+    if (profile.kind) {
+        add(profile.kind);
+        if (profile.kind === 'pocket') add('pocket printer');
+        if (profile.kind === 'label') add('label maker');
+        if (profile.kind === 'label') add('label printer');
+    }
     if (profile.aliases) {
         for (const alias of profile.aliases) {
             add(alias);
         }
     }
 
-    // Matched OpenTLP fields: brand, model, family, aliases
+    // Matched OpenTLP fields: brand, model, family, aliases, app, replacesApps, kind
     if (dev) {
         add(dev.brand);
         add(dev.model);
         add(dev.family);
+        add(dev.app);
+        if (dev.replacesApps) {
+            for (const app of dev.replacesApps) add(app);
+        }
+        if (dev.kind) {
+            add(dev.kind);
+            if (dev.kind === 'pocket') add('pocket printer');
+            if (dev.kind === 'label') add('label maker');
+            if (dev.kind === 'label') add('label printer');
+        }
         if (dev.aliases) {
             for (const alias of dev.aliases) {
                 add(alias);

@@ -53,6 +53,11 @@ function capabilities(headDots: number, media: number | { min: number; max: numb
 export class PhomemoDqDriver implements IPrinterDriver {
     readonly name = 'Phomemo D/Q (rotated ESC/POS)';
     readonly driverType = 'hardware' as const;
+    readonly app = 'Phomemo';
+    readonly replacesApps = ['Phomemo', 'Print Master'] as const;
+    readonly defaultKind = 'label' as const;
+    readonly supportedKinds = ['label'] as const;
+    readonly supportedTransports = ['bluetooth-le', 'bluetooth-classic', 'usb-serial'] as const;
     readonly connectionRequirements = {
         services: [SERVICE],
         namePrefixes: MODELS.map(model => model.model)

@@ -46,6 +46,14 @@
       "maxLength": 200,
       "description": "One line for the table and the top of the page. Anything longer belongs in the page body, which is what the prose is for."
     },
+    "kind": {
+      "enum": [
+        "pocket",
+        "label",
+        "receipt"
+      ],
+      "description": "General device form factor and intended purpose.\n\n- 'pocket': 58 mm continuous thermal printer (mini photo/note/cat printer).\n- 'label': Dedicated label maker with gap/die-cut or mark sensing.\n- 'receipt': Standard POS/desktop receipt printer."
+    },
     "artwork": {
       "type": "object",
       "additionalProperties": false,
@@ -131,6 +139,15 @@
           "type": "string",
           "pattern": "^([0-9a-f]{2} )*[0-9a-f]{2}$",
           "description": "Leading bytes of every command packet, lowercase hex, space separated. e.g. '51 78'."
+        },
+        "app": {
+          "type": "string",
+          "description": "Public commercial name of the manufacturer's original mobile app (e.g. 'Tiny Print', 'Pocket Print', 'WalkPrint', 'Fun Print', 'Phomemo', 'NIIMBOT', 'Marklife', 'Luck Jingle', 'PeriPage', 'Print Lab')."
+        },
+        "replaces_apps": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Official commercial mobile app name(s) replaced by or associated with this device or protocol."
         },
         "vendor_app": {
           "type": "string",

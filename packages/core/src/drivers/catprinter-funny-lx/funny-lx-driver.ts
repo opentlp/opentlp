@@ -44,6 +44,11 @@ export const FUNNY_LX_MODELS: PrinterModelProfile[] = [{
 export class FunnyLxDriver implements IPrinterDriver {
     readonly name = 'Funny Print (LX-D / BH-01 direct raster)';
     readonly driverType = 'hardware' as const;
+    readonly app = 'Fun Print';
+    readonly replacesApps = ['Fun Print', 'Funny Print', 'iPrint'] as const;
+    readonly defaultKind = 'pocket' as const;
+    readonly supportedKinds = ['pocket'] as const;
+    readonly supportedTransports = ['bluetooth-le'] as const;
     readonly connectionRequirements = { services: [SERVICE], namePrefixes: [...MODELS] };
     readonly supportedModels = FUNNY_LX_MODELS;
 

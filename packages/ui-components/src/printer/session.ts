@@ -10,6 +10,7 @@ import {
     PrintManager,
     DummyDriver,
     type PrinterCapabilities,
+    type PrinterModelProfile,
     type UniversalPage,
     type UniversalPrintOptions,
     type IDeviceTransport,
@@ -51,6 +52,10 @@ export const DUMMY_PROFILES: readonly DummyProfile[] = [
 export interface PrinterSnapshot {
     state: PrinterState;
     deviceName?: string;
+    /** Resolved concrete physical printer model profile. */
+    modelProfile?: PrinterModelProfile;
+    /** Concrete printer model identifier. */
+    modelId?: string;
     /** Static UI transport option id (for example web-bluetooth), never a hardware identifier. */
     transportKind?: string;
     /** Concrete transport implementation name exposed by the transport itself. */
@@ -93,7 +98,9 @@ export class PrinterSession {
             this.recordDiagnostic('connection closed');
             this.update({
                 state: 'disconnected', deviceName: undefined,
-                capabilities: undefined, driverName: undefined, status: null, reports: [], serviceUuids: undefined
+                capabilities: undefined, driverName: undefined,
+                modelId: undefined, modelProfile: undefined,
+                status: null, reports: [], serviceUuids: undefined
             });
         });
         this.pm.on('printing', () => {
@@ -208,6 +215,11 @@ export class PrinterSession {
         return this.pm.getAvailableDriverChoices();
     }
 
+    /** The model profile currently active for the connected printer. */
+    getActiveModelProfile(): PrinterModelProfile | undefined {
+        return this.pm.getActiveModelProfile();
+    }
+
     /**
      * Bounded, structured activity intended for a user-reviewed support report.
      * It deliberately records no raster/design data, device ids, serials, raw
@@ -255,10 +267,13 @@ export class PrinterSession {
             simulated = `Virtual ${p.model}`;
         }
         this.pendingDummyProfile = undefined;
+        const activeModel = this.pm.getActiveModelProfile();
         this.update({
             state: 'connected',
             deviceName: simulated ?? this.pm.getConnectedDeviceName(),
             driverName: driver.name,
+            modelId: activeModel?.id,
+            modelProfile: activeModel,
             capabilities: this.pm.getCapabilities(),
             reports: this.pm.getReportedFields(),
             serviceUuids: this.pm.getActiveDriverServiceUuids(),
@@ -266,7 +281,7 @@ export class PrinterSession {
             lastError: undefined
         });
         this.recordDiagnostic(
-            `connection established: transport=${this.snapshot.transportType ?? 'unspecified'}, driver=${driver.name}, services=${this.snapshot.serviceUuids?.length ?? 0}`
+            `connection established: transport=${this.snapshot.transportType ?? 'unspecified'}, driver=${driver.name}, model=${activeModel?.model ?? 'unspecified'}, services=${this.snapshot.serviceUuids?.length ?? 0}`
         );
     };
 

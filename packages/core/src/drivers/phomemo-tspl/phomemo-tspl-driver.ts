@@ -34,6 +34,11 @@ export const PHOMEMO_TSPL_MODELS: PrinterModelProfile[] = MODELS.map(model => ({
 export class PhomemoTsplDriver implements IPrinterDriver {
     readonly name = 'Phomemo PM-241 (TSPL)';
     readonly driverType = 'hardware' as const;
+    readonly app = 'Labelife';
+    readonly replacesApps = ['Labelife', 'Phomemo'] as const;
+    readonly defaultKind = 'label' as const;
+    readonly supportedKinds = ['label'] as const;
+    readonly supportedTransports = ['bluetooth-le', 'bluetooth-classic', 'usb-serial', 'usb'] as const;
     readonly connectionRequirements = { services: [], namePrefixes: [...NAME_PATTERNS] };
     readonly supportedModels = PHOMEMO_TSPL_MODELS;
 

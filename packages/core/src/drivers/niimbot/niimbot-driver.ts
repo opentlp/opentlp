@@ -141,6 +141,11 @@ class UniversalTransportClient extends NiimbotAbstractClient {
 export class NiimbotDriver implements IPrinterDriver {
     public readonly name = "Niimbot Generic Printer";
     public readonly driverType = 'hardware' as const;
+    public readonly app = 'NIIMBOT';
+    public readonly replacesApps = ['NIIMBOT'] as const;
+    public readonly defaultKind = 'label' as const;
+    public readonly supportedKinds = ['label'] as const;
+    public readonly supportedTransports = ['bluetooth-le', 'bluetooth-classic', 'usb-serial'] as const;
     public readonly connectionRequirements = {
         services: [
             '0000fee0-0000-1000-8000-00805f9b34fb', // Classic D11 Series

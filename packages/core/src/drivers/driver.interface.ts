@@ -6,6 +6,17 @@ export type SupportLevel =
     | 'Untested' 
     | 'Unsupported';
 
+export type TransportKind =
+    | 'bluetooth-le'
+    | 'bluetooth-classic'
+    | 'usb-serial'
+    | 'usb';
+
+export type PrinterKind =
+    | 'pocket'
+    | 'label'
+    | 'receipt';
+
 /**
  * Definition of a specific physical printer model for offline simulation and UI selection.
  */
@@ -22,6 +33,28 @@ export interface PrinterModelProfile {
     brand: string;
     model: string;
     family?: string;
+    /**
+     * Public commercial name of the manufacturer's original mobile app
+     * (e.g. 'Tiny Print', 'Pocket Print', 'WalkPrint', 'Fun Print', 'Phomemo', 'NIIMBOT', 'Marklife').
+     */
+    app?: string;
+    /**
+     * List of commercial manufacturer apps this model or its driver replaces.
+     */
+    replacesApps?: readonly string[];
+    /**
+     * General hardware form factor: 'pocket' (continuous 58mm), 'label' (die-cut / tape), 'receipt' (POS).
+     */
+    kind?: PrinterKind;
+    /**
+     * Hardware form factor(s) supported by this profile.
+     */
+    supportedKinds?: readonly PrinterKind[];
+    /**
+     * Physical transport kinds supported by this specific hardware model.
+     * (e.g. ['bluetooth-le'], or ['bluetooth-le', 'bluetooth-classic', 'usb-serial'])
+     */
+    supportedTransports?: readonly TransportKind[];
     /**
      * Other names this exact product is sold under — house brands, rebadges,
      * the name on the box rather than on the firmware.
@@ -228,6 +261,33 @@ export interface IPrinterDriver {
      * so that the UI does not need to maintain its own hardcoded registries.
      */
     supportedModels?: PrinterModelProfile[];
+
+    /**
+     * Default commercial mobile app name associated with this driver family.
+     */
+    readonly app?: string;
+
+    /**
+     * Official commercial mobile app name(s) this driver family replaces
+     * (e.g. ['Tiny Print', 'Pocket Print', 'iPrint']).
+     */
+    readonly replacesApps?: readonly string[];
+
+    /**
+     * Default device form factor for models in this driver family.
+     */
+    readonly defaultKind?: PrinterKind;
+
+    /**
+     * Device form factor(s) supported by this driver family.
+     */
+    readonly supportedKinds?: readonly PrinterKind[];
+
+    /**
+     * Physical transport kinds accepted by this driver.
+     * Defaults to ['bluetooth-le', 'bluetooth-classic', 'usb-serial'] if unspecified.
+     */
+    readonly supportedTransports?: readonly TransportKind[];
 
     /**
      * Optional connection guidance and pairing hints specific to this driver family.

@@ -302,4 +302,122 @@ describe('PrintManager', () => {
         expect(candidateNames).toContain('Phomemo P12/A30');
         expect(diagnostic.suggestedDriver).toBe('Marklife-Protocol-0x1F');
     });
+
+    it('populates app, kind, and supportedTransports on available profiles', () => {
+        const profiles = printManager.getAvailablePrinterProfiles();
+        const p12 = profiles.find(p => p.id === 'marklife_p12');
+        expect(p12).toBeDefined();
+        expect(p12?.app).toBe('Marklife');
+        expect(p12?.kind).toBe('label');
+        expect(p12?.supportedTransports).toContain('bluetooth-le');
+        expect(p12?.supportedTransports).toContain('usb-serial');
+
+        const l13 = profiles.find(p => p.id === 'marklife_l13');
+        expect(l13).toBeDefined();
+        expect(l13?.app).toBe('Pocket Printer');
+        expect(l13?.replacesApps).toContain('Pocket Printer');
+        expect(l13?.replacesApps).toContain('Pocket Print');
+        expect(l13?.kind).toBe('label');
+
+        const gb01 = profiles.find(p => p.id === 'catprinter_gb01');
+        expect(gb01).toBeDefined();
+        expect(gb01?.app).toBe('Tiny Print');
+        expect(gb01?.replacesApps).toContain('Pocket Printer');
+        expect(gb01?.replacesApps).toContain('Pocket Print');
+        expect(gb01?.kind).toBe('pocket');
+        expect(gb01?.supportedTransports).toEqual(['bluetooth-le']);
+    });
+
+    it('finds driver by mobile app name and optional kind', () => {
+        const marklifeDriver = printManager.getDriverForApp('Marklife');
+        expect(marklifeDriver).toBeDefined();
+        expect(marklifeDriver?.name).toBe('Marklife-Protocol-0x1F');
+
+        const tinyDriver = printManager.getDriverForApp('Tiny Print');
+        expect(tinyDriver).toBeDefined();
+        expect(tinyDriver?.name).toContain('Catprinter (Tiny');
+
+        const niimbotDriver = printManager.getDriverForApp('NIIMBOT');
+        expect(niimbotDriver).toBeDefined();
+        expect(niimbotDriver?.name).toContain('Niimbot');
+
+        // Can find by both "Pocket Printer" and "Pocket Print"
+        const pocketPrinterLabel = printManager.getDriverForApp('Pocket Printer', 'label');
+        expect(pocketPrinterLabel).toBeDefined();
+        expect(pocketPrinterLabel?.name).toBe('Marklife-Legacy-L11');
+
+        const pocketPrintLabel = printManager.getDriverForApp('Pocket Print', 'label');
+        expect(pocketPrintLabel).toBeDefined();
+        expect(pocketPrintLabel?.name).toBe('Marklife-Legacy-L11');
+
+        const pocketPrinterPocket = printManager.getDriverForApp('Pocket Printer', 'pocket');
+        expect(pocketPrinterPocket).toBeDefined();
+        expect(pocketPrinterPocket?.name).toContain('Catprinter (Tiny');
+
+        const pocketPrintPocket = printManager.getDriverForApp('Pocket Print', 'pocket');
+        expect(pocketPrintPocket).toBeDefined();
+        expect(pocketPrintPocket?.name).toContain('Catprinter (Tiny');
+    });
+
+    it('retrieves replaced app names and kinds per app', () => {
+        const replacedApps = printManager.getReplacedApps();
+        expect(replacedApps).toContain('Marklife');
+        expect(replacedApps).toContain('Pocket Printer');
+        expect(replacedApps).toContain('Pocket Print');
+        expect(replacedApps).toContain('Tiny Print');
+        expect(replacedApps).toContain('NIIMBOT');
+        expect(replacedApps).toContain('Print Master');
+        expect(replacedApps).toContain('Phomemo');
+        expect(replacedApps).toContain('PeriPage');
+
+        const pocketPrinterKinds = printManager.getKindsForApp('Pocket Printer');
+        expect(pocketPrinterKinds).toContain('pocket');
+        expect(pocketPrinterKinds).toContain('label');
+
+        const pocketPrintKinds = printManager.getKindsForApp('Pocket Print');
+        expect(pocketPrintKinds).toContain('pocket');
+        expect(pocketPrintKinds).toContain('label');
+
+        const marklifeKinds = printManager.getKindsForApp('Marklife');
+        expect(marklifeKinds).toEqual(['label']);
+
+        const tinyKinds = printManager.getKindsForApp('Tiny Print');
+        expect(tinyKinds).toEqual(['pocket']);
+    });
+
+    it('resolves driver from auto: app profile IDs in getDriverForModel', () => {
+        expect(printManager.getDriverForModel('auto:marklife')?.name).toBe('Marklife-Protocol-0x1F');
+        expect(printManager.getDriverForModel('auto:pocket_print_label')?.name).toBe('Marklife-Legacy-L11');
+        expect(printManager.getDriverForModel('auto:pocket_printer_label')?.name).toBe('Marklife-Legacy-L11');
+        expect(printManager.getDriverForModel('auto:pocket_print_pocket')?.name).toContain('Catprinter (Tiny');
+        expect(printManager.getDriverForModel('auto:pocket_printer_pocket')?.name).toContain('Catprinter (Tiny');
+        expect(printManager.getDriverForModel('auto:pocket_print_pocket')?.name).toContain('Catprinter (Tiny');
+        expect(printManager.getDriverForModel('auto:tiny_print')?.name).toContain('Catprinter (Tiny');
+        expect(printManager.getDriverForModel('auto:niimbot')?.name).toContain('Niimbot');
+    });
+
+    it('detects specific model from device name for a driver', () => {
+        const marklifeDriver = printManager.getDriverForModel('marklife_p12')!;
+        expect(marklifeDriver).toBeDefined();
+
+        const detectedP12 = printManager.detectModelForDriver(marklifeDriver, 'P12_81E0');
+        expect(detectedP12?.model).toBe('P12');
+
+        const detectedP50 = printManager.detectModelForDriver(marklifeDriver, 'P50_ABCD');
+        expect(detectedP50?.model).toBe('P50');
+    });
+
+    it('sets activeModelProfile when connecting with an auto profile and clears on disconnect', async () => {
+        const transport = new FastMockTransport('P12_81E0', ['0000ff00-0000-1000-8000-00805f9b34fb']);
+        await printManager.connect(transport, undefined, 'auto:marklife');
+
+        const activeModel = printManager.getActiveModelProfile();
+        expect(activeModel).toBeDefined();
+        expect(activeModel?.id).toBe('marklife_p12');
+        expect(activeModel?.model).toBe('P12');
+
+        await printManager.disconnect();
+        expect(printManager.getActiveModelProfile()).toBeUndefined();
+    });
 });
+

@@ -58,6 +58,9 @@ const catalogue = {
         aliases: [...(device.aliases ?? [])].sort((a, b) => a.localeCompare(b)),
         rebadgeOf: device.rebadge_of ?? null,
         family: device.protocol?.family ?? null,
+        app: resolveApp(device),
+        replacesApps: device.protocol?.replaces_apps ?? (resolveApp(device) ? [resolveApp(device)] : []),
+        kind: resolveKind(device),
         status: device.status ?? null
     }))
 };
@@ -81,4 +84,37 @@ console.log(`Built ${devices.length} device and ${families.length} family record
 
 async function writeJson(path, value) {
     await writeFile(path, JSON.stringify(value, null, 2) + '\n', 'utf8');
+}
+
+function resolveApp(device) {
+    if (device.protocol?.app) return device.protocol.app;
+    const vendorApp = device.protocol?.vendor_app;
+    if (vendorApp) {
+        if (vendorApp.includes('tinyPrint')) return 'Tiny Print';
+        if (vendorApp.includes('funnyprint')) return 'Fun Print';
+        if (vendorApp.includes('mxw')) return 'WalkPrint';
+        if (vendorApp.includes('peripage')) return 'PeriPage';
+        if (vendorApp.includes('marklife')) return 'Marklife';
+        if (vendorApp.includes('niimbot') || vendorApp.includes('jcprint')) return 'NIIMBOT';
+        if (vendorApp.includes('phomemo')) return 'Phomemo';
+    }
+    const family = device.protocol?.family;
+    if (family === 'tiny') return 'Tiny Print';
+    if (family === 'funny-lx') return 'Fun Print';
+    if (family === 'mxw01') return 'WalkPrint';
+    if (family === 'peripage') return 'PeriPage';
+    if (family === 'marklife-1f' || family === 'marklife') return 'Marklife';
+    if (family === 'niimbot') return 'NIIMBOT';
+    return null;
+}
+
+function resolveKind(device) {
+    if (device.kind) return device.kind;
+    const family = device.protocol?.family;
+    const media = device.print?.media;
+    const widthMm = device.print?.width_mm;
+    if (family === 'tiny' || family === 'funny-lx' || family === 'mxw01') return 'pocket';
+    if (media?.includes('gap') || media?.includes('die-cut') || (widthMm && widthMm <= 25)) return 'label';
+    if (device.id?.includes('receipt') || family === 'esc-pos') return 'receipt';
+    return 'label';
 }

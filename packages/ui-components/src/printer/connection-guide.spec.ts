@@ -173,5 +173,31 @@ describe('connection-guide', () => {
             expect(serialGuide.tier).toBe('recommended');
             expect(serialGuide.badge).toBe('Recommended');
         });
+
+        it('marks serial and USB as unsupported by printer for BLE-only models', () => {
+            const serialGuide = getTransportGuidance('web-serial', windowsPlatform, 'catprinter_gb01');
+            expect(serialGuide.tier).toBe('discouraged');
+            expect(serialGuide.badge).toBe('Unsupported by printer');
+            expect(serialGuide.discouragedReason).toContain('only supports Bluetooth LE');
+
+            const usbGuide = getTransportGuidance('web-usb', windowsPlatform, 'catprinter_gb01');
+            expect(usbGuide.tier).toBe('discouraged');
+            expect(usbGuide.badge).toBe('Unsupported by printer');
+
+            const bleGuide = getTransportGuidance('web-bluetooth', windowsPlatform, 'catprinter_gb01');
+            expect(bleGuide.tier).toBe('recommended');
+        });
+
+        it('resolves auto app profile and provides correct guidance', () => {
+            const autoTiny = getTransportGuidance('web-bluetooth', windowsPlatform, 'auto:tiny_print');
+            expect(autoTiny.tier).toBe('recommended');
+
+            const autoTinySerial = getTransportGuidance('web-serial', windowsPlatform, 'auto:tiny_print');
+            expect(autoTinySerial.badge).toBe('Unsupported by printer');
+
+            const autoMarklifeSerial = getTransportGuidance('web-serial', windowsPlatform, 'auto:marklife');
+            expect(autoMarklifeSerial.badge).not.toBe('Unsupported by printer');
+        });
     });
 });
+

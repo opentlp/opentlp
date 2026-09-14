@@ -14,6 +14,10 @@ import { PrinterError } from "../printer-error";
 export class DummyDriver implements IPrinterDriver {
     public readonly name = "Virtual-Dummy-Printer";
     public readonly driverType = 'virtual' as const;
+    public readonly replacesApps = [] as const;
+    public readonly defaultKind = 'label' as const;
+    public readonly supportedKinds = ['label', 'pocket', 'receipt'] as const;
+    public readonly supportedTransports = ['bluetooth-le', 'bluetooth-classic', 'usb-serial', 'usb'] as const;
     public readonly connectionRequirements = {
         services: [] as string[]
     };

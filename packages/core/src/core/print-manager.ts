@@ -1,6 +1,6 @@
 import EventEmitter from "eventemitter3";
 import { IDeviceTransport } from "./transports/transport.interface";
-import { IPrinterDriver, UniversalPrintOptions, PrinterModelProfile } from "../drivers/driver.interface";
+import { IPrinterDriver, UniversalPrintOptions, PrinterModelProfile, PrinterKind } from "../drivers/driver.interface";
 import type { LoadedMedia, PrinterStatus, StatusField } from "../drivers/printer-status";
 import { PrinterError, toPrinterError } from "../drivers/printer-error";
 import type { UniversalPage } from "../types/ink";
@@ -64,6 +64,7 @@ export interface DeviceDiagnostic {
 export class PrintManager extends EventEmitter<PrintManagerEvents> {
     private activeTransport?: IDeviceTransport;
     private activeDriver?: IPrinterDriver;
+    private activeModelProfile?: PrinterModelProfile;
     private registeredDrivers: IPrinterDriver[] = [];
 
     private isPrinting: boolean = false;
@@ -119,11 +120,15 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
             for (const profile of driver.supportedModels || []) {
                 if (!seen.has(profile.id)) {
                     seen.add(profile.id);
-                    const mergedProfile: PrinterModelProfile = profile.connectionHints
-                        ? profile
-                        : driver.connectionHints
-                        ? { ...profile, connectionHints: driver.connectionHints }
-                        : profile;
+                    const mergedProfile: PrinterModelProfile = {
+                        ...profile,
+                        app: profile.app ?? driver.app,
+                        replacesApps: profile.replacesApps ?? driver.replacesApps,
+                        kind: profile.kind ?? driver.defaultKind,
+                        supportedKinds: profile.supportedKinds ?? driver.supportedKinds,
+                        supportedTransports: profile.supportedTransports ?? driver.supportedTransports,
+                        connectionHints: profile.connectionHints ?? driver.connectionHints
+                    };
                     uniqueProfiles.push(mergedProfile);
                 }
             }
@@ -137,10 +142,165 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
     }
 
     /**
+     * Returns a sorted, unique list of all official manufacturer mobile apps
+     * replaced across all registered drivers.
+     */
+    getReplacedApps(): string[] {
+        const apps = new Set<string>();
+        for (const driver of this.registeredDrivers) {
+            if (driver.replacesApps) {
+                for (const app of driver.replacesApps) {
+                    if (app) apps.add(app);
+                }
+            } else if (driver.app) {
+                apps.add(driver.app);
+            }
+            if (driver.supportedModels) {
+                for (const m of driver.supportedModels) {
+                    if (m.replacesApps) {
+                        for (const app of m.replacesApps) {
+                            if (app) apps.add(app);
+                        }
+                    } else if (m.app) {
+                        apps.add(m.app);
+                    }
+                }
+            }
+        }
+        return Array.from(apps).sort((a, b) => a.localeCompare(b));
+    }
+
+    /**
+     * Finds all registered drivers that replace the given mobile app.
+     */
+    getDriversForApp(appName: string): IPrinterDriver[] {
+        const lower = appName.toLowerCase().trim();
+        return this.registeredDrivers.filter(driver => {
+            const matchesReplaces = driver.replacesApps?.some(a => a.toLowerCase().trim() === lower);
+            const matchesApp = driver.app && driver.app.toLowerCase().trim() === lower;
+            const matchesModels = driver.supportedModels?.some(m =>
+                m.replacesApps?.some(a => a.toLowerCase().trim() === lower) ||
+                (m.app && m.app.toLowerCase().trim() === lower)
+            );
+            return Boolean(matchesReplaces || matchesApp || matchesModels);
+        });
+    }
+
+    /**
+     * Returns the printer kinds (form factors) supported by the drivers that replace the given app.
+     */
+    getKindsForApp(appName: string): PrinterKind[] {
+        const drivers = this.getDriversForApp(appName);
+        const kinds = new Set<PrinterKind>();
+        for (const driver of drivers) {
+            if (driver.supportedKinds) {
+                for (const k of driver.supportedKinds) kinds.add(k);
+            } else if (driver.defaultKind) {
+                kinds.add(driver.defaultKind);
+            }
+            if (driver.supportedModels) {
+                for (const m of driver.supportedModels) {
+                    if (m.kind) kinds.add(m.kind);
+                }
+            }
+        }
+        return Array.from(kinds);
+    }
+
+    /**
+     * Finds a registered driver associated with the given mobile app name and optional form factor kind.
+     */
+    getDriverForApp(appName: string, kind?: PrinterKind): IPrinterDriver | undefined {
+        const drivers = this.getDriversForApp(appName);
+        if (drivers.length === 0) return undefined;
+        if (!kind) return drivers[0];
+
+        const match = drivers.find(d => {
+            if (d.supportedKinds?.includes(kind)) return true;
+            if (d.defaultKind === kind) return true;
+            return d.supportedModels?.some(m => m.kind === kind);
+        });
+        return match ?? drivers[0];
+    }
+
+    /**
+     * Resolves the closest matching physical PrinterModelProfile from a driver's supported models
+     * using the advertised Bluetooth/device name.
+     */
+    detectModelForDriver(driver: IPrinterDriver, deviceName?: string): PrinterModelProfile | undefined {
+        if (!driver.supportedModels || driver.supportedModels.length === 0) {
+            return undefined;
+        }
+
+        if (deviceName) {
+            const cleanDeviceName = deviceName.toLowerCase().replace(/[^a-z0-9]/g, '');
+            // Sort longest model name first to avoid short prefix shadowing (e.g. D11 vs D110 or P12 vs P12_PRO)
+            const sortedModels = [...driver.supportedModels].sort((a, b) => b.model.length - a.model.length);
+
+            for (const m of sortedModels) {
+                const cleanModel = m.model.toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (cleanDeviceName.includes(cleanModel)) {
+                    return m;
+                }
+                if (m.aliases) {
+                    for (const alias of m.aliases) {
+                        const cleanAlias = alias.toLowerCase().replace(/[^a-z0-9]/g, '');
+                        if (cleanDeviceName.includes(cleanAlias)) {
+                            return m;
+                        }
+                    }
+                }
+            }
+        }
+
+        return driver.supportedModels[0];
+    }
+
+    /**
      * Finds a registered driver that explicitly supports the given model ID or model name.
      */
     getDriverForModel(modelId: string): IPrinterDriver | undefined {
         const idLower = modelId.toLowerCase();
+        if (idLower.startsWith('auto:')) {
+            const key = idLower.slice(5);
+            if (key === 'pocket_print_pocket' || key === 'pocket_printer_pocket') {
+                return this.registeredDrivers.find(d => d.name.includes('Catprinter (Tiny'));
+            }
+            if (key === 'pocket_print_label' || key === 'pocket_printer_label') {
+                return this.registeredDrivers.find(d => d.name.includes('Legacy') || (d.replacesApps?.includes('Pocket Printer') && d.defaultKind === 'label'));
+            }
+            if (key === 'tiny_print') {
+                return this.registeredDrivers.find(d => d.name.includes('Catprinter (Tiny'));
+            }
+            if (key === 'marklife') {
+                return this.registeredDrivers.find(d => d.name.includes('Marklife-Protocol-0x1F'));
+            }
+            if (key === 'niimbot') {
+                return this.registeredDrivers.find(d => d.name.includes('Niimbot'));
+            }
+            if (key === 'walkprint') {
+                return this.registeredDrivers.find(d => d.name.includes('MXW01') || d.app === 'WalkPrint');
+            }
+            if (key === 'fun_print') {
+                return this.registeredDrivers.find(d => d.name.includes('Funny') || d.app === 'Fun Print');
+            }
+            if (key === 'phomemo_pocket') {
+                return this.registeredDrivers.find(d => d.name.includes('Phomemo M02'));
+            }
+            if (key === 'phomemo_label' || key === 'print_master') {
+                return this.registeredDrivers.find(d => d.name.includes('Phomemo M110'));
+            }
+            if (key === 'labelife') {
+                return this.registeredDrivers.find(d => d.name.includes('PM-241') || d.app === 'Labelife');
+            }
+            if (key === 'peripage') {
+                return this.registeredDrivers.find(d => d.name.includes('PeriPage'));
+            }
+            const cleanApp = key.replace(/_/g, ' ');
+            const byApp = this.getDriverForApp(cleanApp);
+            if (byApp) return byApp;
+        }
+
         const cleanId = idLower.replace(/[^a-z0-9]/g, '');
         return this.registeredDrivers.find(driver =>
             driver.supportedModels?.some(m =>
@@ -172,13 +332,17 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
 
         this.activeTransport = transport;
 
+        const resolvedModelDriver = (modelId && modelId !== 'none' && modelId !== 'unknown')
+            ? this.getDriverForModel(modelId)
+            : undefined;
+
         // Aggregate All Services from all drivers to request proper BLE permissions
         // and name prefixes for discovery hints
         const allServices = new Set<string>();
         const allPrefixes = new Set<string>();
         const preferredDriver = preferredDriverName
             ? this.registeredDrivers.find(driver => driver.name === preferredDriverName)
-            : undefined;
+            : resolvedModelDriver;
         if (preferredDriverName && !preferredDriver) {
             throw new Error(`Unknown printer driver: ${preferredDriverName}`);
         }
@@ -213,7 +377,7 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
             await this.activeTransport.connect(
                 this.activeTransport.filterType === 'usb' ? undefined : filters
             );
-            await this.bindDriver(preferredDriverName, modelId);
+            await this.bindDriver(preferredDriverName ?? preferredDriver?.name, modelId);
         } catch (error: any) {
             this.activeTransport = undefined;
             this.emit("error", error);
@@ -239,8 +403,15 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
 
         this.activeTransport = transport;
 
+        const resolvedModelDriver = (modelId && modelId !== 'none' && modelId !== 'unknown')
+            ? this.getDriverForModel(modelId)
+            : undefined;
+        const preferredDriver = preferredDriverName
+            ? this.registeredDrivers.find(driver => driver.name === preferredDriverName)
+            : resolvedModelDriver;
+
         try {
-            await this.bindDriver(preferredDriverName, modelId);
+            await this.bindDriver(preferredDriverName ?? preferredDriver?.name, modelId);
         } catch (error: any) {
             this.activeTransport = undefined;
             this.emit("error", error);
@@ -313,14 +484,34 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
 
     private async bindMatchedDriver(driver: IPrinterDriver, modelId?: string): Promise<void> {
         if (!this.activeTransport) throw new Error("No active transport.");
-        if (modelId && driver.setModel) {
-            driver.setModel(modelId);
+        let targetModelId = modelId;
+        if (!targetModelId || targetModelId.startsWith('auto:') || targetModelId === 'unknown' || targetModelId === 'none') {
+            const detected = this.detectModelForDriver(driver, this.activeTransport.getDeviceName());
+            if (detected) {
+                targetModelId = detected.id;
+                this.activeModelProfile = detected;
+            } else if (driver.supportedModels && driver.supportedModels.length > 0) {
+                this.activeModelProfile = driver.supportedModels[0];
+            }
+        } else {
+            this.activeModelProfile = driver.supportedModels?.find(m => m.id === targetModelId)
+                ?? this.detectModelForDriver(driver, this.activeTransport.getDeviceName());
+        }
+
+        if (targetModelId && driver.setModel) {
+            driver.setModel(targetModelId);
         }
         this.activeDriver = driver;
         await driver.bindTransport(this.activeTransport);
         this.emit("connected", driver);
     }
 
+    /**
+     * Retrieves the model profile currently active for the connected printer.
+     */
+    public getActiveModelProfile(): PrinterModelProfile | undefined {
+        return this.activeModelProfile;
+    }
 
     async disconnect(): Promise<void> {
         this.isPrinting = false;
@@ -551,6 +742,7 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
             }
             this.activeDriver = undefined;
         }
+        this.activeModelProfile = undefined;
         this.activeTransport?.removeAllListeners();
         this.activeTransport = undefined;
         this.emit("disconnected");
