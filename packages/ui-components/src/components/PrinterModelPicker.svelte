@@ -14,17 +14,39 @@
 
     interface Props {
         selectedId?: string;
+        mode?: 'both' | 'apps-only' | 'models-only';
+        selectedApp?: string;
         onselect: (id: string) => void;
+        onappselect?: (app: string) => void;
+        onback?: () => void;
+        onbrowseall?: () => void;
     }
 
-    let { selectedId, onselect }: Props = $props();
+    let {
+        selectedId,
+        mode = 'both',
+        selectedApp = '',
+        onselect,
+        onappselect,
+        onback,
+        onbrowseall
+    }: Props = $props();
 
     const pm = new PrintManager();
 
     let appSearchQuery = $state('');
     let modelSearchQuery = $state('');
-    let selectedAppFilter = $state<string>('all');
+    // svelte-ignore state_referenced_locally
+    let selectedAppFilter = $state<string>(
+        mode === 'models-only' ? (selectedApp || '__all__') : (selectedApp || 'all')
+    );
     let selectedKindFilter = $state<string>('all');
+
+    $effect(() => {
+        if (mode === 'models-only' && selectedApp) {
+            selectedAppFilter = selectedApp;
+        }
+    });
 
     const isNone = $derived(!selectedId || selectedId === 'none');
     const isUnknown = $derived(selectedId === 'unknown');
@@ -35,19 +57,35 @@
         receipt: 'Receipt Printer',
     };
 
+    function isLightColor(hex?: string): boolean {
+        if (!hex) return false;
+        const h = hex.replace('#', '');
+        const r = parseInt(h.substring(0, 2), 16) || 0;
+        const g = parseInt(h.substring(2, 4), 16) || 0;
+        const b = parseInt(h.substring(4, 6), 16) || 0;
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        return luminance > 0.8;
+    }
+
     function getBadgeBackground(palette: string[] | undefined, fallback: string): string {
         if (!palette || palette.length === 0) return fallback;
-        const chromatic = palette.filter(c => {
-            const hex = c.replace('#', '');
-            const r = parseInt(hex.substring(0, 2), 16);
-            const g = parseInt(hex.substring(2, 4), 16);
-            const b = parseInt(hex.substring(4, 6), 16);
-            return !(r > 240 && g > 240 && b > 240);
-        });
-        if (chromatic.length >= 2) {
-            return `linear-gradient(135deg, ${chromatic[0]} 0%, ${chromatic[1]} 100%)`;
+        if (isLightColor(palette[0])) return palette[0];
+        if (palette.length === 1) return palette[0];
+        if (palette.length === 2) {
+            return `linear-gradient(135deg, ${palette[0]} 0%, ${palette[1]} 100%)`;
         }
-        return chromatic[0] || fallback;
+        if (palette.length === 3) {
+            return `linear-gradient(135deg, ${palette[0]} 0%, ${palette[1]} 55%, ${palette[2]} 100%)`;
+        }
+        return `linear-gradient(135deg, ${palette[0]} 0%, ${palette[1]} 35%, ${palette[2]} 70%, ${palette[3]} 100%)`;
+    }
+
+    function getBadgeTextColor(palette: string[] | undefined, fallback: string): string {
+        if (!palette || palette.length === 0) return '#ffffff';
+        if (isLightColor(palette[0])) {
+            return palette[1] || fallback;
+        }
+        return '#ffffff';
     }
 
     const profileEntries = $derived.by(() => {
@@ -253,7 +291,7 @@
 </script>
 
 <div class="picker-container">
-    {#if selectedAppFilter === 'all'}
+    {#if mode === 'apps-only' || (mode === 'both' && selectedAppFilter === 'all')}
         <!-- STEP 1: CHOOSE COMPANION APP -->
         <div class="step-guide">
             <div class="step-guide-title">
@@ -299,6 +337,7 @@
                         selectedAppFilter = currentSelectedApp;
                         modelSearchQuery = '';
                         selectedKindFilter = 'all';
+                        onappselect?.(currentSelectedApp);
                     }}
                 >
                     <span>View {currentSelectedApp} &rarr;</span>
@@ -318,19 +357,33 @@
                         app.replacesApps.some(r => profile.replacesApps?.includes(r))
                     ))
                 ).length}
-                <button
-                    type="button"
+                <div
                     class="app-card"
+                    role="button"
+                    tabindex="0"
+                    style:--app-brand={app.brandColor}
                     onclick={() => {
                         selectedAppFilter = app.name;
                         modelSearchQuery = '';
                         selectedKindFilter = 'all';
+                        onappselect?.(app.name);
+                    }}
+                    onkeydown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            selectedAppFilter = app.name;
+                            modelSearchQuery = '';
+                            selectedKindFilter = 'all';
+                            onappselect?.(app.name);
+                        }
                     }}
                 >
                     <div class="app-card-top">
                         <div
                             class="app-badge"
+                            class:light-bg={isLightColor(app.brandPalette?.[0])}
                             style:background={getBadgeBackground(app.brandPalette, app.brandColor)}
+                            style:color={getBadgeTextColor(app.brandPalette, app.brandColor)}
                         >
                             <span>{app.badgeLetter}</span>
                         </div>
@@ -338,24 +391,7 @@
                             <strong class="app-name">{app.name}</strong>
                             <span class="app-dev">{app.developer}</span>
                         </div>
-                        {#if app.brandPalette && app.brandPalette.length > 0}
-                            <div class="palette-swatches" title="Official app brand palette: {app.brandPalette.join(', ')}" aria-hidden="true">
-                                {#each app.brandPalette as col}
-                                    <span class="palette-dot" style:background={col}></span>
-                                {/each}
-                            </div>
-                        {/if}
                     </div>
-                    {#if app.popularModels && app.popularModels.length > 0}
-                        <div class="app-models-pills">
-                            {#each app.popularModels.slice(0, 4) as m}
-                                <span class="model-pill">{m}</span>
-                            {/each}
-                            {#if app.popularModels.length > 4}
-                                <span class="model-pill pill-more">+{app.popularModels.length - 4}</span>
-                            {/if}
-                        </div>
-                    {/if}
                     {#if app.playStoreUrl || app.appStoreUrl}
                         <div class="app-store-links">
                             {#if app.playStoreUrl}
@@ -366,6 +402,7 @@
                                     class="store-link-chip"
                                     title={`Open ${app.name} on Google Play Store`}
                                     onclick={(e) => e.stopPropagation()}
+                                    onkeydown={(e) => e.stopPropagation()}
                                 >
                                     <Icon name="external-link" size={10} />
                                     <span>Play Store</span>
@@ -379,6 +416,7 @@
                                     class="store-link-chip"
                                     title={`Open ${app.name} on Apple App Store`}
                                     onclick={(e) => e.stopPropagation()}
+                                    onkeydown={(e) => e.stopPropagation()}
                                 >
                                     <Icon name="external-link" size={10} />
                                     <span>App Store</span>
@@ -390,7 +428,7 @@
                         <span class="app-count">{modelCount > 0 ? `${modelCount} models` : 'Auto-detect'}</span>
                         <span class="app-action">Select &rarr;</span>
                     </div>
-                </button>
+                </div>
             {/each}
         </div>
 
@@ -443,6 +481,8 @@
                         selectedAppFilter = '__all__';
                         modelSearchQuery = '';
                         selectedKindFilter = 'all';
+                        if (onbrowseall) onbrowseall();
+                        else onappselect?.('__all__');
                     }}
                 >
                     Browse all {profileEntries.length} printer models directly &rarr;
@@ -457,9 +497,14 @@
                 type="button"
                 class="back-to-apps-btn"
                 onclick={() => {
-                    selectedAppFilter = 'all';
-                    modelSearchQuery = '';
-                    selectedKindFilter = 'all';
+                    if (mode === 'models-only' && onback) {
+                        onback();
+                    } else {
+                        selectedAppFilter = 'all';
+                        modelSearchQuery = '';
+                        selectedKindFilter = 'all';
+                        onback?.();
+                    }
                 }}
             >
                 <Icon name="arrow-left" size={14} />
@@ -469,19 +514,14 @@
                 {#if activeAppInfo}
                     <span
                         class="mini-app-badge"
+                        class:light-bg={isLightColor(activeAppInfo.brandPalette?.[0])}
                         style:background={getBadgeBackground(activeAppInfo.brandPalette, activeAppInfo.brandColor)}
+                        style:color={getBadgeTextColor(activeAppInfo.brandPalette, activeAppInfo.brandColor)}
                     >
                         {activeAppInfo.badgeLetter}
                     </span>
                     <strong>{activeAppInfo.name}</strong>
                     <span class="active-app-dev">({activeAppInfo.developer})</span>
-                    {#if activeAppInfo.brandPalette && activeAppInfo.brandPalette.length > 0}
-                        <div class="palette-swatches" title="Official brand palette: {activeAppInfo.brandPalette.join(', ')}" aria-hidden="true">
-                            {#each activeAppInfo.brandPalette as col}
-                                <span class="palette-dot" style:background={col}></span>
-                            {/each}
-                        </div>
-                    {/if}
                     {#if activeAppInfo.playStoreUrl || activeAppInfo.appStoreUrl}
                         <div class="active-store-links">
                             {#if activeAppInfo.playStoreUrl}
@@ -663,6 +703,9 @@
         flex-direction: column;
         gap: 12px;
         width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
     }
     .step-guide {
         display: flex;
@@ -796,14 +839,18 @@
     }
     .app-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr));
         gap: 10px;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
     }
     .app-card {
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        gap: 10px;
+        gap: 8px;
         padding: 12px;
         background: var(--panel-2);
         border: 1px solid var(--border);
@@ -812,50 +859,54 @@
         text-align: left;
         color: inherit;
         font: inherit;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        overflow: hidden;
+        position: relative;
         transition: border-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
     }
-    .app-card:hover {
-        border-color: var(--accent);
+    .app-card:hover,
+    .app-card:focus-visible {
+        border-color: var(--app-brand, var(--accent));
         transform: translateY(-1px);
-        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+        box-shadow: 0 3px 12px color-mix(in srgb, var(--app-brand, var(--accent)) 16%, transparent);
+        outline: none;
     }
     .app-card-top {
         display: flex;
         align-items: center;
         gap: 10px;
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
     }
     .app-badge {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 36px;
-        height: 36px;
-        border-radius: 8px;
-        color: #ffffff;
+        width: 38px;
+        height: 38px;
+        border-radius: 9px;
         font-weight: 700;
         font-size: 16px;
         flex-shrink: 0;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.14);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+    .app-badge.light-bg {
+        border: 1px solid rgba(0, 0, 0, 0.16);
+        text-shadow: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
     }
     .app-header-text {
         display: flex;
         flex-direction: column;
         min-width: 0;
         flex: 1;
-    }
-    .palette-swatches {
-        display: inline-flex;
-        align-items: center;
-        gap: 3px;
-        margin-left: auto;
-        flex-shrink: 0;
-    }
-    .palette-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        border: 1px solid rgba(0, 0, 0, 0.15);
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
     }
     .app-name {
         font-size: 13px;
@@ -864,6 +915,8 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        display: block;
+        width: 100%;
     }
     .app-dev {
         font-size: 11px;
@@ -871,35 +924,24 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-    }
-    .app-models-pills {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-    }
-    .model-pill {
-        padding: 2px 6px;
-        font-size: 10px;
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 3px;
-        color: var(--text);
-    }
-    .pill-more {
-        color: var(--muted);
-        border-style: dashed;
+        display: block;
+        width: 100%;
     }
     .app-store-links {
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 5px;
         flex-wrap: wrap;
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
     }
     .active-store-links {
         display: inline-flex;
         align-items: center;
-        gap: 6px;
-        margin-left: 4px;
+        gap: 5px;
+        margin-left: 6px;
+        flex-wrap: wrap;
     }
     .store-link-chip {
         display: inline-flex;
@@ -913,6 +955,8 @@
         background: color-mix(in srgb, var(--panel) 70%, var(--border));
         border: 1px solid var(--border);
         transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+        white-space: nowrap;
+        box-sizing: border-box;
     }
     .store-link-chip:hover {
         color: var(--accent);
@@ -924,16 +968,23 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 6px;
         font-size: 11px;
         padding-top: 6px;
         border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
     }
     .app-count {
         color: var(--muted);
+        white-space: nowrap;
     }
     .app-action {
         color: var(--accent);
         font-weight: 600;
+        white-space: nowrap;
+        margin-left: auto;
     }
     .fallback-section {
         display: flex;
@@ -942,6 +993,10 @@
         margin-top: 6px;
         padding-top: 12px;
         border-top: 1px solid var(--border);
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
     }
     .fallback-title {
         font-size: 11px;
@@ -952,8 +1007,12 @@
     }
     .fallback-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr));
         gap: 8px;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
     }
     .fallback-card {
         display: flex;
@@ -967,6 +1026,11 @@
         text-align: left;
         color: inherit;
         font: inherit;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        overflow: hidden;
         transition: border-color 0.15s ease;
     }
     .fallback-card:hover {
@@ -984,15 +1048,26 @@
         display: flex;
         flex-direction: column;
         gap: 2px;
+        min-width: 0;
+        flex: 1;
+        overflow: hidden;
     }
     .fallback-content strong {
         font-size: 12px;
         color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     .fallback-content span {
         font-size: 10px;
         color: var(--muted);
         line-height: 1.3;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
     }
     .browse-all-row {
         display: flex;
@@ -1056,6 +1131,9 @@
         color: #ffffff;
         font-size: 11px;
         font-weight: 700;
+    }
+    .mini-app-badge.light-bg {
+        border: 1px solid rgba(0, 0, 0, 0.16);
     }
     .active-app-dev {
         font-size: 11px;

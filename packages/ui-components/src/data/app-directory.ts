@@ -26,7 +26,7 @@ export const KNOWN_COMPANION_APPS: CompanionAppInfo[] = [
         replacesApps: ['Pocket Printer', 'Pocket Print'],
         isMultiDevice: true,
         playStoreUrl: 'https://play.google.com/store/apps/details?id=com.printer.lidloffice',
-        appStoreUrl: 'https://apps.apple.com/app/pocket-printer/id1534948842'
+        appStoreUrl: 'https://apps.apple.com/app/pocket-printer/id6444190726'
     },
     {
         id: 'marklife',
@@ -38,8 +38,8 @@ export const KNOWN_COMPANION_APPS: CompanionAppInfo[] = [
         popularModels: ['P12', 'P11', 'P15', 'P50', 'M1'],
         summary: 'Compact thermal tape and die-cut label makers using the Marklife 0x1F protocol.',
         replacesApps: ['Marklife'],
-        playStoreUrl: 'https://play.google.com/store/apps/details?id=com.quyin.marklife',
-        appStoreUrl: 'https://apps.apple.com/app/marklife/id1552317937'
+        playStoreUrl: 'https://play.google.com/store/apps/details?id=com.feioou.deliprint.yxq',
+        appStoreUrl: 'https://apps.apple.com/app/marklife/id1540535142'
     },
     {
         id: 'tiny_print',
@@ -52,7 +52,7 @@ export const KNOWN_COMPANION_APPS: CompanionAppInfo[] = [
         summary: 'Ubiquitous 58mm cat and teddy bear continuous thermal pocket printers (0x51/0x78 Tiny protocol).',
         replacesApps: ['Tiny Print', 'iPrint'],
         playStoreUrl: 'https://play.google.com/store/apps/details?id=com.frogtosea.tinyPrint',
-        appStoreUrl: 'https://apps.apple.com/app/tiny-print/id1593356064'
+        appStoreUrl: 'https://apps.apple.com/app/tiny-print/id1585952175'
     },
     {
         id: 'niimbot',
@@ -65,7 +65,7 @@ export const KNOWN_COMPANION_APPS: CompanionAppInfo[] = [
         summary: 'Smart thermal label makers using smart RFID/die-cut labels and Niimbot protocol.',
         replacesApps: ['NIIMBOT'],
         playStoreUrl: 'https://play.google.com/store/apps/details?id=com.gengcon.android.jccloudprinter',
-        appStoreUrl: 'https://apps.apple.com/app/niimbot/id1438992019'
+        appStoreUrl: 'https://apps.apple.com/app/niimbot/id1359104615'
     },
     {
         id: 'print_master',
@@ -78,7 +78,7 @@ export const KNOWN_COMPANION_APPS: CompanionAppInfo[] = [
         summary: 'Official app for portable Phomemo/AIMO die-cut label makers.',
         replacesApps: ['Print Master', 'Phomemo'],
         playStoreUrl: 'https://play.google.com/store/apps/details?id=com.project.aimotech.printmaster',
-        appStoreUrl: 'https://apps.apple.com/app/print-master/id1527497184'
+        appStoreUrl: 'https://apps.apple.com/app/print-master/id1467113436'
     },
     {
         id: 'phomemo',
@@ -92,7 +92,7 @@ export const KNOWN_COMPANION_APPS: CompanionAppInfo[] = [
         replacesApps: ['Phomemo', 'Print Master'],
         isMultiDevice: true,
         playStoreUrl: 'https://play.google.com/store/apps/details?id=com.quyin.phomemo',
-        appStoreUrl: 'https://apps.apple.com/app/phomemo/id1437197177'
+        appStoreUrl: 'https://apps.apple.com/app/phomemo/id1456102145'
     },
     {
         id: 'fun_print',
@@ -105,7 +105,7 @@ export const KNOWN_COMPANION_APPS: CompanionAppInfo[] = [
         summary: 'Mini thermal memo and sticker printers running the Funny Print LX-D raster protocol.',
         replacesApps: ['Fun Print', 'Funny Print'],
         playStoreUrl: 'https://play.google.com/store/apps/details?id=com.yintibao.funprint',
-        appStoreUrl: 'https://apps.apple.com/app/fun-print/id1588661642'
+        appStoreUrl: 'https://apps.apple.com/app/fun-print/id1592740556'
     },
     {
         id: 'walkprint',
@@ -118,7 +118,7 @@ export const KNOWN_COMPANION_APPS: CompanionAppInfo[] = [
         summary: 'Portable thermal pocket and receipt printers using WalkPrint / V5X bulk raster protocol.',
         replacesApps: ['WalkPrint', 'Luck Jingle'],
         playStoreUrl: 'https://play.google.com/store/apps/details?id=com.yhk.rabbit.print.walkprint',
-        appStoreUrl: 'https://apps.apple.com/app/walkprint/id1530932269'
+        appStoreUrl: 'https://apps.apple.com/app/walkprint/id1491753561'
     },
     {
         id: 'peripage',
@@ -131,7 +131,7 @@ export const KNOWN_COMPANION_APPS: CompanionAppInfo[] = [
         summary: 'Bear-styled 58mm and 80mm pocket printers using standard ESC/POS raster framing.',
         replacesApps: ['PeriPage'],
         playStoreUrl: 'https://play.google.com/store/apps/details?id=com.ileadtek.peripage',
-        appStoreUrl: 'https://apps.apple.com/app/peripage/id1391583095'
+        appStoreUrl: 'https://apps.apple.com/app/peripage/id1508457132'
     },
     {
         id: 'flashlabel',
@@ -144,32 +144,32 @@ export const KNOWN_COMPANION_APPS: CompanionAppInfo[] = [
         summary: 'Desktop shipping and thermal barcode printers using TSPL/CPCL protocol.',
         replacesApps: ['FlashLabel', 'Orgsta'],
         playStoreUrl: 'https://play.google.com/store/apps/details?id=cn.angyin.flashlabel',
-        appStoreUrl: 'https://apps.apple.com/app/flashlabel/id1532938883'
+        appStoreUrl: 'https://apps.apple.com/app/flashlabel/id1619933168'
     },
     {
         id: 'labelife',
         name: 'Labelife',
         developer: 'AIMO Tech / Zhuhai Quin',
         brandColor: '#3d81f8',
-        brandPalette: ['#3d81f8', '#ffffff'],
+        brandPalette: ['#ffffff', '#3d81f8'],
         badgeLetter: 'L',
         popularModels: ['PM-241', 'PM-241BT', 'D520'],
         summary: 'Wide desktop commercial shipping label printers communicating via TSPL commands.',
         replacesApps: ['Labelife', 'Phomemo'],
         playStoreUrl: 'https://play.google.com/store/apps/details?id=com.aimo.labelife',
-        appStoreUrl: 'https://apps.apple.com/app/labelife/id1562947230'
+        appStoreUrl: 'https://apps.apple.com/app/labelife/id1560922539'
     },
     {
         id: 'munbyn_print',
         name: 'Munbyn Print',
         developer: 'MUNBYN / SYZ',
         brandColor: '#ff4713',
-        brandPalette: ['#ff4713', '#ffffff'],
+        brandPalette: ['#ffffff', '#ff4713'],
         badgeLetter: 'M',
         popularModels: ['ITPP941', 'RW401AP', 'Realwriter 941', 'ITPP130'],
         summary: 'Commercial shipping and thermal barcode label printers using TSPL/CPCL protocol.',
         replacesApps: ['Munbyn Print', 'Munbyn'],
         playStoreUrl: 'https://play.google.com/store/apps/details?id=com.syz.mprint',
-        appStoreUrl: 'https://apps.apple.com/app/munbyn-print/id1588636254'
+        appStoreUrl: 'https://apps.apple.com/app/munbyn-print/id1629319392'
     }
 ];

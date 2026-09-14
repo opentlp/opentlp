@@ -287,14 +287,14 @@
                 <div class="model-summary">
                     <span class="model-icon"><Icon name="printer" size={20} /></span>
                     <div class="model-info">
-                        <span class="model-label">Your printer model</span>
+                        <span class="model-label">{currentModelProfile?.app ? `App: ${currentModelProfile.app}` : 'Your printer model'}</span>
                         <strong class="model-name">
                             {#if currentModelProfile}
                                 {currentModelProfile.rebadgeOnly ? `${currentModelProfile.brand}-compatible` : currentModelProfile.brand} {currentModelProfile.model}
                             {:else if selectedPrinterModel === 'unknown'}
                                 Unknown / Not in list (Diagnostic mode)
                             {:else}
-                                Automatic / Not configured
+                                Select companion app &amp; model
                             {/if}
                         </strong>
                     </div>
@@ -305,11 +305,11 @@
                     onclick={() => (isPickingPrinter = !isPickingPrinter)}
                     disabled={snap.state === 'connecting' || isDiagnosing}
                 >
-                    {isPickingPrinter ? 'Done' : 'Change model'}
+                    {isPickingPrinter ? 'Done' : (!selectedPrinterModel || selectedPrinterModel === 'none' ? 'Choose model' : 'Change model')}
                 </button>
             </div>
 
-            {#if isPickingPrinter}
+            {#if isPickingPrinter || (!selectedPrinterModel || selectedPrinterModel === 'none')}
                 <div class="picker-dropdown-panel">
                     <PrinterModelPicker
                         selectedId={selectedPrinterModel}
@@ -633,6 +633,10 @@
         background: var(--panel);
         border: 1px solid var(--border);
         border-radius: 3px;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
     }
     .model-summary {
         display: flex;
@@ -676,8 +680,13 @@
         background: var(--panel);
         border: 1px solid var(--border);
         border-radius: 3px;
-        max-height: 380px;
+        max-height: 420px;
         overflow-y: auto;
+        overflow-x: hidden;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
     }
     .model-safety {
         display: flex;

@@ -44,15 +44,17 @@
     const printer = fromStore(session);
     const snap = $derived(printer.current);
 
-    const STEPS = ['look', 'printer', 'paper', 'done'] as const;
+    const STEPS = ['look', 'app', 'printer', 'paper', 'done'] as const;
     type Step = (typeof STEPS)[number];
     const STEP_LABELS: Record<Step, string> = {
         look: 'Look',
+        app: 'App',
         printer: 'Printer',
         paper: 'Paper',
         done: 'Ready',
     };
     let step = $state<Step>('look');
+    let selectedApp = $state<string>('');
     const index = $derived(STEPS.indexOf(step));
 
     function next(): void { if (index < STEPS.length - 1) step = STEPS[index + 1]; }
@@ -125,10 +127,34 @@
                     {/each}
                 </div>
 
+            {:else if step === 'app'}
+                <h2>Your printer's companion app</h2>
+                <p class="lede">
+                    Select the mobile app that came in the box or manual. OpenTLP uses this to configure
+                    the right driver protocol and show compatible models.
+                </p>
+                <PrinterModelPicker
+                    mode="apps-only"
+                    selectedApp={selectedApp}
+                    onappselect={(appName) => {
+                        selectedApp = appName;
+                        step = 'printer';
+                    }}
+                    onselect={(id) => {
+                        choosePrinter(id);
+                        selectedApp = '';
+                        step = 'printer';
+                    }}
+                    onbrowseall={() => {
+                        selectedApp = '__all__';
+                        step = 'printer';
+                    }}
+                />
+
             {:else if step === 'printer'}
                 <h2>Your printer</h2>
                 <p class="lede">
-                    Pick the exact model first, then connect it. This lets Studio select the
+                    Pick your exact model first, then connect it. This lets Studio select the
                     correct protocol and read the machine's real capabilities safely.
                 </p>
 
@@ -137,7 +163,15 @@
                         <strong>1. Choose your model</strong>
                         <small>If it is missing or you are unsure, choose Unknown / Not in list instead of guessing.</small>
                     </div>
-                    <PrinterModelPicker selectedId={settings.defaultPrinter} onselect={choosePrinter} />
+                    <PrinterModelPicker
+                        mode="models-only"
+                        selectedApp={selectedApp}
+                        selectedId={settings.defaultPrinter}
+                        onselect={choosePrinter}
+                        onback={() => {
+                            step = 'app';
+                        }}
+                    />
                 </section>
 
                 <section class="path second-path">
@@ -162,11 +196,15 @@
                 <ul class="summary">
                     <li><span>Look</span><strong>{settings.skin === 'craft' ? 'Boutique' : 'Workshop'} · {settings.theme}</strong></li>
                     <li>
+                        <span>App</span>
+                        <strong>{selectedApp && selectedApp !== '__all__' ? selectedApp : (PRINTER_PROFILES.find(p => p.id === settings.defaultPrinter)?.app ?? 'Auto')}</strong>
+                    </li>
+                    <li>
                         <span>Printer</span>
                         <strong>
                             {snap.state === 'connected'
                                 ? (snap.deviceName ?? 'Connected')
-                                : (PRINTER_PROFILES.find(p => p.id === settings.defaultPrinter)?.model ?? 'None')}
+                                : (PRINTER_PROFILES.find(p => p.id === settings.defaultPrinter)?.model ?? (settings.defaultPrinter === 'unknown' ? 'Diagnostic probe' : 'None'))}
                         </strong>
                     </li>
                     <li><span>Paper</span><strong>{settings.paper?.name ?? 'Not set'}</strong></li>
