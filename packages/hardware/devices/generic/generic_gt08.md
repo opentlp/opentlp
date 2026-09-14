@@ -7,10 +7,15 @@ protocol:
   family: tiny
   variant: standard
   packet_prefix: "51 78"
+  app: iPrint
+  vendor_app: com.frogtosea.iprint
+  replaces_apps:
+    - Tiny Print
 
 print:
-  width_dots: 384
-  width_mm: 48
+  width_dots: 1728
+  width_mm: 216
+  media_width_mm: 216
   dpi: 203
   colour: monochrome
 
@@ -24,11 +29,11 @@ connectivity:
 status: unverified
 
 sources:
-  - kind: catalogue
+  - kind: vendor-doc
+    url: https://play.google.com/store/apps/details?id=com.frogtosea.iprint
     note: >-
-      Transcribed from a driver's model table; specifications not confirmed against hardware.
+      Decompiled APK PrintModelUtils.java confirms GT08 is an A4 thermal document/tattoo printer with 1728 paper dots and 1600 print dots at 203 DPI.
 ---
 
-Part of the [tiny family](tiny.html). Catalogued from a driver's model
-table — the printhead width and the protocol dialect are what that table records,
-and nothing here has been checked against the hardware.
+Part of the [tiny family](tiny.html). Verified from `com.frogtosea.iprint` (`PrintModelUtils.java`)
+as an A4-format portable thermal document/tattoo printer (1728 paper dots, 1600 printhead dots).

@@ -34,10 +34,14 @@ class MockTransport extends EventEmitter<TransportEventMap> implements IDeviceTr
 }
 
 describe('Funny Print LX driver', () => {
-    it('matches only the documented LX-D names and BH-01 marketing name', () => {
+    it('matches documented LX-D names, DL models, and BH-01 marketing name', () => {
         const driver = new FunnyLxDriver(() => RANDOM);
         expect(driver.isCompatible('LX-D02')).toBe(true);
+        expect(driver.isCompatible('LX-D02-BLE')).toBe(true);
         expect(driver.isCompatible('BH-01')).toBe(true);
+        expect(driver.isCompatible('DL-T1')).toBe(true);
+        expect(driver.isCompatible('DL-T01')).toBe(true);
+        expect(driver.isCompatible('DL-P01_1234')).toBe(true);
         expect(driver.isCompatible('LX-D002')).toBe(false);
     });
 

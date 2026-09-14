@@ -17,10 +17,14 @@ class MockTransport extends EventEmitter<TransportEventMap> implements IDeviceTr
 }
 
 describe('PhomemoM110Driver', () => {
-    it('recognises explicit model names and the M110S advertising alias', () => {
+    it('recognises explicit model names and the M110/M120/M220 advertising aliases', () => {
         const driver = new PhomemoM110Driver();
         expect(driver.isCompatible('M120-1234')).toBe(true);
         expect(driver.isCompatible('Q199E_ABCD')).toBe(true);
+        expect(driver.isCompatible('M002_1234')).toBe(true);
+        expect(driver.isCompatible('Q002_5678')).toBe(true);
+        expect(driver.isCompatible('Q009_9999')).toBe(true);
+        expect(driver.isCompatible('Q054_0000')).toBe(true);
         expect(driver.isCompatible('M200')).toBe(false);
     });
 

@@ -13,10 +13,10 @@ export interface DeviceProfile {
 }
 
 export const MARKLIFE_PROFILES: DeviceProfile[] = [
-    { prefixes: ['P80', 'P80S', 'L80'], canvasHeightPx: 576 },
-    { prefixes: ['P50', 'P50S', 'D50', 'M57', 'S8', 'L50', 'X2', 'S2', 'SB_S2', 'Jammuk_S2', 'LPW40'], canvasHeightPx: 384 },
-    { prefixes: ['P11', 'P12', 'P15', 'P7', 'L13', 'LP15', 'iSPACE-LP15', 'LP90'], canvasHeightPx: 96 },
-    { prefixes: ['LuckP_D1', 'D210', 'IP_D80', '210', 'DP_D80', 'DP_8028', 'HM-24-28', 'T3', 'ET-Z0535', 'ET-Z0537', 'X4', 'L100'], canvasHeightPx: 384 } // Assumed wide for unknown labels
+    { prefixes: ['P80', 'P80S', 'L80', 'A80', 'A81', 'MT81', 'MT82', 'GD985', 'Y810', 'D400'], canvasHeightPx: 576 },
+    { prefixes: ['P50', 'P50S', 'D50', 'M57', 'S8', 'L50', 'X2', 'S2', 'SB_S2', 'Jammuk_S2', 'LPW40', 'DPS1', 'PPS1', 'LuckP_D1', 'LuckP_S1', 'LuckP_A2', 'DP_S1', 'DP_D1'], canvasHeightPx: 384 },
+    { prefixes: ['P11', 'P12', 'P15', 'P7', 'L12', 'L13', 'LP15', 'iSPACE-LP15', 'LP90', 'MPL10', 'MPL11', 'MPL12', 'MPL13', 'MPL15'], canvasHeightPx: 96 },
+    { prefixes: ['D210', 'IP_D80', '210', 'DP_D80', 'DP_8028', 'HM-24-28', 'T3', 'ET-Z0535', 'ET-Z0537', 'X4', 'L100'], canvasHeightPx: 384 } // Assumed wide for unknown labels
 ];
 
 const buildFamily = (
@@ -34,7 +34,7 @@ const buildFamily = (
     }));
 };
 
-const marklife15mm = buildFamily('Marklife', 'Marklife 15mm Series', ['P11', 'P12', 'P15', 'P7', 'L13', 'LP15', 'iSPACE-LP15', 'LP90'], {
+const marklife15mm = buildFamily('Marklife', 'Marklife 15mm Series', ['P11', 'P12', 'P15', 'P7', 'L12', 'L13', 'LP15', 'iSPACE-LP15', 'LP90'], {
     capabilities: {
         canvasHeightPx: 96,
         dpmm: 8,
@@ -219,7 +219,10 @@ export const MARKLIFE_HARDWARE_MODELS = [
  *
  * Matched on the advertised name prefix, the same way the official app does.
  */
-export const LEGACY_L11_PREFIXES = ['LP90', 'L13', 'DP-L13', 'SILVERCREST', 'MUNBYN', 'LUCKJINGLE'];
+export const LEGACY_L11_PREFIXES = [
+    'LP90', 'L13', 'DP-L13', 'SILVERCREST', 'MUNBYN', 'LUCKJINGLE',
+    'LUCKP_', 'DP_', 'APL', 'MPL', 'LPD', 'PPL', 'L12', 'PPS1', 'BTW'
+];
 
 export type MarklifeDialect = 'auto' | 'standard' | 'legacy';
 
@@ -291,7 +294,8 @@ export class MarklifeDriver implements IPrinterDriver {
         this.app = dialect === 'legacy' ? 'Pocket Printer' : 'Marklife';
         this.replacesApps = dialect === 'legacy' ? ['Pocket Printer', 'Pocket Print'] : ['Marklife'];
         const isLegacy = (m: PrinterModelProfile) =>
-            m.model === 'L13' || m.model === 'LP90' || m.id === 'marklife_l13' || m.id === 'marklife_lp90';
+            m.model === 'L13' || m.model === 'L12' || m.model === 'LP90' ||
+            m.id === 'marklife_l13' || m.id === 'marklife_l12' || m.id === 'marklife_lp90';
         if (dialect === 'legacy') {
             this.supportedModels = MARKLIFE_HARDWARE_MODELS.filter(isLegacy);
             this.connectionRequirements = {
@@ -361,7 +365,16 @@ export class MarklifeDriver implements IPrinterDriver {
             n.includes('L13') ||
             n.includes('SILVERCREST') ||
             n.includes('MUNBYN') ||
-            n.includes('LUCKJINGLE')
+            n.includes('LUCKJINGLE') ||
+            n.includes('LUCKP_') ||
+            n.includes('DP_') ||
+            n.includes('APL') ||
+            n.includes('MPL') ||
+            n.includes('LPD') ||
+            n.includes('PPL') ||
+            n.includes('L12') ||
+            n.includes('PPS1') ||
+            n.includes('BTW')
         ) ? 0x03 : 0x02;
     }
 

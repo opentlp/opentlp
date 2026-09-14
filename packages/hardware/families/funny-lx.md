@@ -69,6 +69,14 @@ implementations:
 status: reported
 
 sources:
+  - kind: vendor-doc
+    url: https://play.google.com/store/apps/details?id=com.lailaixiong.funnyprint
+    title: Funny Print, published by Shenzhen LaiLaiXiong Technology Co., Ltd
+    note: The reference vendor application for the LX-D direct raster family.
+  - kind: vendor-doc
+    url: https://play.google.com/store/apps/details?id=com.dolewa.camera
+    title: Dolewa Camera, published by Shenzhen Dolewa Technology Co., Ltd
+    note: Decompiled APK confirms usage of LaiLaiXiong backend and LX-D protocol stack for Dolewa instant print cameras.
   - kind: oss-project
     url: https://github.com/Dejniel/TiMini-Print/tree/a9a456c4243132bad52c500e39bdec221fe98db9/timiniprint/protocol/families/funny_lx
     licence: Apache-2.0

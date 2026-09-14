@@ -7,6 +7,8 @@ protocol:
   family: catprinter-v5x
   variant: bulk-raster
   packet_prefix: 22 21
+  app: WalkPrint
+  vendor_app: com.yhk.rabbit.print.walkprint
 
 print:
   width_dots: 384

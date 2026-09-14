@@ -77,6 +77,11 @@ sources:
     note: >-
       The vendor application for this family. Its publisher is a software
       company; no source connects it to manufacturing.
+  - kind: vendor-doc
+    url: https://play.google.com/store/apps/details?id=com.frogtosea.iprint
+    title: iPrint, published by Shenzhen 100cow Technology Co., Ltd
+    note: >-
+      The primary vendor application for this family, cataloguing 191 models across 58mm pocket printers, mini label printers, and A4 stencil/tattoo thermal printers (GT08, GW08, GW09, PR88, PR89, X8-L, X8-W, JXM800).
   - kind: oss-project
     url: https://github.com/JJJollyjim/catprinter
     title: catprinter — COMMANDS.md

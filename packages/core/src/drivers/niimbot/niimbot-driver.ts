@@ -138,6 +138,13 @@ class UniversalTransportClient extends NiimbotAbstractClient {
 }
 
 
+export const NIIMBOT_PREFIXES = [
+    'Niimbot', 'D11', 'D110', 'D101', 'D41', 'D61',
+    'B1', 'B2', 'B3', 'B3S', 'B4', 'B11', 'B16', 'B18', 'B21', 'B31', 'B32', 'B50', 'B203', 'JCB3S',
+    'H1', 'S1', 'S3', 'S6', 'T2S', 'T6', 'T7', 'T8', 'K2', 'K3', 'K4',
+    'A1', 'A8', 'A20', 'A63', 'C1', 'JC', 'ET10', 'Fust', 'Betty', 'Z401', 'N1', 'M2', 'P1', 'P18'
+];
+
 export class NiimbotDriver implements IPrinterDriver {
     public readonly name = "Niimbot Generic Printer";
     public readonly driverType = 'hardware' as const;
@@ -151,7 +158,7 @@ export class NiimbotDriver implements IPrinterDriver {
             '0000fee0-0000-1000-8000-00805f9b34fb', // Classic D11 Series
             'e7810a71-73ae-499d-8c15-faa9aef0c3f2'  // Modern B21/B1 Series
         ],
-        namePrefixes: ['Niimbot', 'D11', 'B21', 'B1']
+        namePrefixes: NIIMBOT_PREFIXES
     };
 
     public readonly connectionHints = {
@@ -204,8 +211,13 @@ export class NiimbotDriver implements IPrinterDriver {
     private connectedDeviceName?: string;
 
     isCompatible(deviceName: string): boolean {
-        const name = deviceName.toLowerCase();
-        return name.includes("niimbot") || name.startsWith("d11") || name.startsWith("b21") || name.startsWith("b1");
+        const name = deviceName.toLowerCase().trim();
+        if (name.includes("niimbot") || name.includes("jccloud")) return true;
+        if (name.startsWith("d11") || name.startsWith("b21") || name.startsWith("b1")) return true;
+        return NIIMBOT_PREFIXES.some(prefix => {
+            const lower = prefix.toLowerCase();
+            return name === lower || name.startsWith(`${lower}_`) || name.startsWith(`${lower}-`) || name.startsWith(`${lower} `) || name.startsWith(`${lower}pro`);
+        });
     }
 
     getCapabilities(): PrinterCapabilities {

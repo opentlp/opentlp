@@ -15,6 +15,11 @@ const MODELS: readonly P12Model[] = [
     { model: 'A30', headDots: 120, media: { min: 12, max: 15 } }
 ];
 
+const P12_BROADCAST_PREFIXES = ['Q037', 'Q090', 'Q091', 'Q094', 'Q112', 'Q129', 'Q245'];
+const P12_PRO_BROADCAST_PREFIXES = ['Q113', 'Q534'];
+const A30_BROADCAST_PREFIXES = ['Q294', 'Q295', 'Q574', 'Q695', 'Q732', 'Q772', 'Q846'];
+const NAMED_PREFIXES = ['P12 PRO', 'P12PRO', 'P12', 'A30'];
+
 function capabilities(model: P12Model): PrinterCapabilities {
     return {
         canvasHeightPx: model.headDots,
@@ -44,7 +49,15 @@ export class PhomemoP12Driver implements IPrinterDriver {
     readonly defaultKind = 'label' as const;
     readonly supportedKinds = ['label'] as const;
     readonly supportedTransports = ['bluetooth-le', 'bluetooth-classic', 'usb-serial'] as const;
-    readonly connectionRequirements = { services: [SERVICE], namePrefixes: ['P12 PRO', 'P12PRO', 'P12', 'A30'] };
+    readonly connectionRequirements = {
+        services: [SERVICE],
+        namePrefixes: [
+            ...NAMED_PREFIXES,
+            ...P12_BROADCAST_PREFIXES,
+            ...P12_PRO_BROADCAST_PREFIXES,
+            ...A30_BROADCAST_PREFIXES
+        ]
+    };
     readonly supportedModels = PHOMEMO_P12_MODELS;
     readonly connectionHints: ConnectionHints = {
         bleHint: 'Turn on your printer, click Connect, and select your device in the popup list.',
@@ -57,9 +70,11 @@ export class PhomemoP12Driver implements IPrinterDriver {
 
     isCompatible(deviceName: string): boolean {
         const upper = deviceName.trim().toUpperCase();
-        return ['P12 PRO', 'P12PRO', 'P12', 'A30'].some(name => upper === name
-            || upper.startsWith(`${name}-`)
-            || upper.startsWith(`${name}_`));
+        if (NAMED_PREFIXES.some(name => upper === name || upper.startsWith(`${name}-`) || upper.startsWith(`${name}_`))) {
+            return true;
+        }
+        return [...P12_BROADCAST_PREFIXES, ...P12_PRO_BROADCAST_PREFIXES, ...A30_BROADCAST_PREFIXES]
+            .some(p => upper.startsWith(p));
     }
 
     async bindTransport(transport: IDeviceTransport): Promise<void> {
@@ -104,8 +119,8 @@ export class PhomemoP12Driver implements IPrinterDriver {
     }
 
     private matchModel(): P12Model {
-        if (this.deviceName.startsWith('A30')) return MODELS[2];
-        if (this.deviceName.startsWith('P12 PRO') || this.deviceName.startsWith('P12PRO')) return MODELS[1];
+        if (['A30', ...A30_BROADCAST_PREFIXES].some(p => this.deviceName.startsWith(p))) return MODELS[2];
+        if (['P12 PRO', 'P12PRO', ...P12_PRO_BROADCAST_PREFIXES].some(p => this.deviceName.startsWith(p))) return MODELS[1];
         return MODELS[0];
     }
 

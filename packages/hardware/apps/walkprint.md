@@ -19,12 +19,10 @@ protocols:
   - catprinter-v5x
 replaces_apps:
   - WalkPrint
-  - Luck Jingle
 popular_models:
   - MXW01
   - V5G
   - MX05
-  - Luck Jingle
 is_multi_device: false
 status: verified
 sources:

@@ -114,9 +114,9 @@ export const KNOWN_COMPANION_APPS: CompanionAppInfo[] = [
         brandColor: '#8073f7',
         brandPalette: ['#ffffff', '#8073f7'],
         badgeLetter: 'W',
-        popularModels: ['MXW01', 'V5G', 'MX05', 'Luck Jingle'],
+        popularModels: ['MXW01', 'V5G', 'MX05'],
         summary: 'Portable thermal pocket and receipt printers using WalkPrint / V5X bulk raster protocol.',
-        replacesApps: ['WalkPrint', 'Luck Jingle'],
+        replacesApps: ['WalkPrint'],
         playStoreUrl: 'https://play.google.com/store/apps/details?id=com.yhk.rabbit.print.walkprint',
         appStoreUrl: 'https://apps.apple.com/app/walkprint/id1491753561'
     },
@@ -171,5 +171,42 @@ export const KNOWN_COMPANION_APPS: CompanionAppInfo[] = [
         replacesApps: ['Munbyn Print', 'Munbyn'],
         playStoreUrl: 'https://play.google.com/store/apps/details?id=com.syz.mprint',
         appStoreUrl: 'https://apps.apple.com/app/munbyn-print/id1629319392'
+    },
+    {
+        id: 'luck_jingle',
+        name: 'Luck Jingle',
+        developer: 'Xiamen Lujiang Technology Co., Ltd.',
+        brandColor: '#0670e8',
+        brandPalette: ['#0670e8', '#ffcd34', '#ffffff', '#000000'],
+        badgeLetter: 'L',
+        popularModels: ['L13', 'L12', 'DPS1', 'D80', 'A80', 'ITP05'],
+        summary: 'Portable Bluetooth thermal label makers and mini pocket printers using the LuckPrinter ESC/POS and flow-control protocol.',
+        replacesApps: ['Luck Jingle', 'LuckPrinter'],
+        playStoreUrl: 'https://play.google.com/store/apps/details?id=com.dingdang.newprint',
+        appStoreUrl: 'https://apps.apple.com/app/luck-jingle/id1533722247'
+    },
+    {
+        id: 'iprint',
+        name: 'iPrint',
+        developer: 'FrogToSea / iPrint Team',
+        brandColor: '#2b7cad',
+        brandPalette: ['#2b7cad', '#1c5f9b', '#ffffff', '#000000'],
+        badgeLetter: 'I',
+        popularModels: ['GB01', 'GT08', 'JXM800', 'X8', 'GW08', 'C9'],
+        summary: 'Ubiquitous 58mm pocket printers, 15mm label printers, and A4 stencil/tattoo printers using the 51 78 Tiny protocol.',
+        replacesApps: ['iPrint', 'Tiny Print'],
+        playStoreUrl: 'https://play.google.com/store/apps/details?id=com.frogtosea.iprint'
+    },
+    {
+        id: 'dolewa',
+        name: 'Dolewa',
+        developer: 'Dolewa Technology',
+        brandColor: '#06c9da',
+        brandPalette: ['#06c9da', '#e78d14', '#60d4df', '#000000'],
+        badgeLetter: 'D',
+        popularModels: ['BH-01', 'A80', 'D80', 'DL-T1', 'M8'],
+        summary: 'Portable A4 tattoo printers, pocket memo cameras, and label makers using Funny LX-D and ESC/POS raster protocols.',
+        replacesApps: ['Dolewa', 'Dolewa Camera', 'Dolewa A4 Printer'],
+        playStoreUrl: 'https://play.google.com/store/apps/details?id=com.dolewa&hl=gsw'
     }
 ];

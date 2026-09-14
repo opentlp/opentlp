@@ -5,8 +5,12 @@ import * as Protocol from './protocol';
 import { rotateToPrintRows } from './raster';
 
 const SERVICE = '0000ae30-0000-1000-8000-00805f9b34fb';
+const SERVICE_ALT = '0000ae00-0000-1000-8000-00805f9b34fb';
+const SERVICE_FF00 = '0000ff00-0000-1000-8000-00805f9b34fb';
+const SERVICE_AB00 = '0000ab00-0000-1000-8000-00805f9b34fb';
 const WRITE = '0000ae01-0000-1000-8000-00805f9b34fb';
 const NOTIFY = '0000ae02-0000-1000-8000-00805f9b34fb';
+const NOTIFY_ALT = '0000ae04-0000-1000-8000-00805f9b34fb';
 
 const STANDARD_MODELS = [
     'GB01', 'GB02', 'GB03', 'GB04', 'GB05', 'GT01', 'GT02', 'GT04', 'GT08', 'GT09',
@@ -17,7 +21,17 @@ const PREFIXED_MODELS = ['JXM800', 'LP100', 'LY10', 'LY11'] as const;
 const STANDARD_REBRANDS = [
     'MX01', 'MXTP-100', 'AZ-P2108X', 'PD01', 'URBANWORXKIDSCAMERA', 'CYLOBTPRINTER',
     'XOPOPPY', 'BQ01', 'BQ05', 'BQ06', 'BQ06B', 'BQ07', 'BQ7A', 'BQ7B', 'BQ08',
-    'BQ95', 'BQ95B', 'BQ95C', 'BQ96', 'MXW009', 'MXW010', 'KP-IM606', 'GV-MA211', 'X6', 'K06'
+    'BQ95', 'BQ95B', 'BQ95C', 'BQ96', 'MXW009', 'MXW010', 'KP-IM606', 'GV-MA211', 'X6', 'K06',
+    'DL_X2', 'ROSSMANN', 'TCM690464', 'SEZNIKNEO', '15P3', 'YK06', 'CPLM10', 'WQ02', 'LP6', 'XIAOWA',
+    'PR02', 'PR07', 'PR30', 'PR35',
+    'XW001', 'XW002', 'XW003', 'JX001', 'FL01', 'KF-5', 'SC03', 'SC04', '58P5', 'WL01', 'X5', 'X7',
+    'S102', 'HD1', 'P10', 'P7', 'DY01', 'S01', 'LT01', 'GW08', 'GW09', 'PR88', 'PR89', 'X8-L', 'X8-W',
+    'ZP801', 'PR893', 'A43', 'A4300', 'MPA81', 'P4', 'X9', 'MV-B530', 'QDID', 'GL-VS9', 'ZP802', 'ZPA4Z1',
+    'A42II', 'A41II', 'A41III', 'X8', 'S101', 'P5AI', 'M2', 'P6', 'P7H', 'X2H', 'X102', 'X6HP', 'X5HP',
+    'X7HP', 'X103H', 'X103H', 'X6H', 'X5H', 'AN01', 'CP01', 'S5A', 'P20 MAX', 'S9A', 'DY33A', 'YMS-BT01',
+    'WJ-HOT-PRT', 'JRX01', 'RS9000', 'DY49', 'QDX01', 'WTS07', 'GT10', 'A200', 'X7H', 'X2H', 'X5H',
+    'MTPR26BK', 'ML-MP-01', 'LUXORP.PX10', 'DTR-R0', 'X18', 'CLICK-SOUND', 'DT1-R', 'MVMT INK', '0019B-D',
+    'EMX-040256', 'HT0125', 'DT1-0', '0019B-C'
 ] as const;
 
 const profile = (model: string, dialect: Protocol.CatPrinterDialect): PrinterModelProfile => ({
@@ -59,6 +73,7 @@ export class CatPrinterDriver implements IPrinterDriver {
     };
 
     private transport?: IDeviceTransport;
+    private activeServiceUUID: string = SERVICE;
     private paused = false;
     private resumeWaiters: Array<() => void> = [];
     private lastOptions?: UniversalPrintOptions;
@@ -70,7 +85,7 @@ export class CatPrinterDriver implements IPrinterDriver {
         this.name = dialect === 'prefixed'
             ? 'Catprinter (Tiny prefixed 0x12/0x51/0x78)'
             : 'Catprinter (Tiny 0x51/0x78)';
-        this.connectionRequirements = { services: [SERVICE], namePrefixes: names };
+        this.connectionRequirements = { services: [SERVICE, SERVICE_ALT, SERVICE_FF00, SERVICE_AB00], namePrefixes: names };
         this.supportedModels = CATPRINTER_MODELS.filter(model =>
             dialect === 'prefixed' ? model.family?.includes('0x12/') : !model.family?.includes('0x12/'));
     }
@@ -85,10 +100,16 @@ export class CatPrinterDriver implements IPrinterDriver {
         this.transport = transport;
         transport.on('data', this.handleData);
         if (transport.startNotifications) {
-            try {
-                await transport.startNotifications({ serviceUUID: SERVICE, notifyUUID: NOTIFY });
-            } catch {
-                // Several compatible units are effectively write-only.
+            for (const s of [SERVICE, SERVICE_ALT]) {
+                for (const n of [NOTIFY, NOTIFY_ALT]) {
+                    try {
+                        await transport.startNotifications({ serviceUUID: s, notifyUUID: n });
+                        this.activeServiceUUID = s;
+                        return;
+                    } catch {
+                        // Several compatible units are effectively write-only or use alt UUIDs.
+                    }
+                }
             }
         }
     }
@@ -96,6 +117,7 @@ export class CatPrinterDriver implements IPrinterDriver {
     async unbindTransport(): Promise<void> {
         this.transport?.off('data', this.handleData);
         this.transport = undefined;
+        this.activeServiceUUID = SERVICE;
         this.paused = false;
         this.releaseResumeWaiters();
     }
@@ -159,7 +181,7 @@ export class CatPrinterDriver implements IPrinterDriver {
         const transport = this.requireTransport();
         for (let offset = 0; offset < data.length; offset += 100) {
             await this.waitUntilResumed();
-            await transport.write(data.slice(offset, offset + 100), { serviceUUID: SERVICE, writeUUID: WRITE, reliable: false });
+            await transport.write(data.slice(offset, offset + 100), { serviceUUID: this.activeServiceUUID, writeUUID: WRITE, reliable: false });
             if (offset + 100 < data.length) await new Promise(resolve => setTimeout(resolve, 5));
         }
     }

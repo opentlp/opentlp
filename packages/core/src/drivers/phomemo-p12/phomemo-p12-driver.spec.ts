@@ -19,10 +19,13 @@ class MockTransport extends EventEmitter<TransportEventMap> implements IDeviceTr
 }
 
 describe('PhomemoP12Driver', () => {
-    it('matches the exact tape family without swallowing unrelated names', () => {
+    it('matches the exact tape family and broadcast SN aliases without swallowing unrelated names', () => {
         const driver = new PhomemoP12Driver();
         expect(driver.isCompatible('P12PRO-1')).toBe(true);
         expect(driver.isCompatible('A30')).toBe(true);
+        expect(driver.isCompatible('Q037_1234')).toBe(true);
+        expect(driver.isCompatible('Q113_5678')).toBe(true);
+        expect(driver.isCompatible('Q294_9999')).toBe(true);
         expect(driver.isCompatible('P120')).toBe(false);
     });
 
@@ -31,9 +34,17 @@ describe('PhomemoP12Driver', () => {
         await a30.bindTransport(new MockTransport('A30'));
         expect(a30.getCapabilities().canvasHeightPx).toBe(120);
 
+        const a30Alias = new PhomemoP12Driver();
+        await a30Alias.bindTransport(new MockTransport('Q294_1234'));
+        expect(a30Alias.getCapabilities().canvasHeightPx).toBe(120);
+
         const p12 = new PhomemoP12Driver();
         await p12.bindTransport(new MockTransport('P12'));
         expect(p12.getCapabilities().canvasHeightPx).toBe(96);
+
+        const p12Alias = new PhomemoP12Driver();
+        await p12Alias.bindTransport(new MockTransport('Q037_1234'));
+        expect(p12Alias.getCapabilities().canvasHeightPx).toBe(96);
     });
 
     it('waits through all six setup exchanges', async () => {

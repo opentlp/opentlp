@@ -15,9 +15,11 @@ protocol:
   family: marklife-1f
   packet_prefix: "1f"
   app: Pocket Printer
+  vendor_app: com.printer.lidloffice
   replaces_apps:
     - Pocket Printer
     - Pocket Print
+    - Luck Jingle
 
 print:
   width_dots: 96

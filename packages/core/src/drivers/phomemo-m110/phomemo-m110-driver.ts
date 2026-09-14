@@ -16,10 +16,10 @@ interface M110Model {
 }
 
 const MODELS: readonly M110Model[] = [
-    { model: 'M110', headDots: 344, mediaWidthMm: 48 },
+    { model: 'M110', headDots: 344, mediaWidthMm: 48, bluetoothPrefixes: ['M002', 'Q002', 'Q011', 'Q026', 'Q034', 'Q119', 'Q192', 'Q468'] },
     { model: 'M110S', headDots: 384, mediaWidthMm: 48, bluetoothPrefixes: ['Q199E'] },
-    { model: 'M120', headDots: 344, mediaWidthMm: 48 },
-    { model: 'M220', headDots: 576, mediaWidthMm: 72 }
+    { model: 'M120', headDots: 344, mediaWidthMm: 48, bluetoothPrefixes: ['Q009', 'Q244', 'Q274', 'Q451', 'Q592'] },
+    { model: 'M220', headDots: 576, mediaWidthMm: 72, bluetoothPrefixes: ['Q054', 'Q155'] }
 ];
 
 function capabilities(model: M110Model): PrinterCapabilities {

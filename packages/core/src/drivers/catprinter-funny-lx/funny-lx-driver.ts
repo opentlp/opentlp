@@ -5,12 +5,16 @@ import { rotateToPrintRows } from './raster';
 import * as Protocol from './funny-lx-protocol';
 
 const SERVICE = '0000ffe6-0000-1000-8000-00805f9b34fb';
+const SERVICE_ALT = '0000ffe0-0000-1000-8000-00805f9b34fb';
+const SERVICE_FF00 = '0000ff00-0000-1000-8000-00805f9b34fb';
 const WRITE = '0000ffe1-0000-1000-8000-00805f9b34fb';
 const NOTIFY = '0000ffe2-0000-1000-8000-00805f9b34fb';
 const MODELS = [
     'LX-D01', 'LX-D02', 'LX-D2', 'LX-D3', 'LX-D4', 'LX-D5', 'LX-D6', 'LX-D7',
     'LX-D8', 'LX-D9', 'LX-D03', 'LX-D04', 'LX-D05', 'LX-D06', 'LX-D07',
-    'LX-D08', 'LX-D09', 'BH-01'
+    'LX-D08', 'LX-D09', 'BH-01', 'DL-T1', 'DL-T01', 'DL-P01',
+    'A80', 'A80H', 'Y80', 'D80', 'D80PRO', 'Y80H', 'Y8', 'Y8PRO', 'M8', 'M8H',
+    'C80', 'C80H', 'ITP04', 'L11', 'L12', 'A50', 'L50', 'L3', 'L4', 'F2', 'FLASHTOY', 'I-P-01'
 ] as const;
 
 interface NotificationWaiter {
@@ -49,10 +53,11 @@ export class FunnyLxDriver implements IPrinterDriver {
     readonly defaultKind = 'pocket' as const;
     readonly supportedKinds = ['pocket'] as const;
     readonly supportedTransports = ['bluetooth-le'] as const;
-    readonly connectionRequirements = { services: [SERVICE], namePrefixes: [...MODELS] };
+    readonly connectionRequirements = { services: [SERVICE, SERVICE_ALT, SERVICE_FF00], namePrefixes: [...MODELS] };
     readonly supportedModels = FUNNY_LX_MODELS;
 
     private transport?: IDeviceTransport;
+    private activeService = SERVICE;
     private notifications: Uint8Array[] = [];
     private waiters: NotificationWaiter[] = [];
     private supportsDarkness = false;
@@ -63,7 +68,7 @@ export class FunnyLxDriver implements IPrinterDriver {
 
     isCompatible(deviceName: string): boolean {
         const upper = deviceName.trim().toUpperCase();
-        return MODELS.some(model => upper === model);
+        return MODELS.some(model => upper === model || upper.startsWith(`${model}-`) || upper.startsWith(`${model}_`));
     }
 
     async bindTransport(transport: IDeviceTransport): Promise<void> {
@@ -72,7 +77,13 @@ export class FunnyLxDriver implements IPrinterDriver {
         if (!transport.startNotifications) {
             throw new Error('Funny LX authentication requires BLE notifications.');
         }
-        await transport.startNotifications({ serviceUUID: SERVICE, notifyUUID: NOTIFY });
+        try {
+            await transport.startNotifications({ serviceUUID: SERVICE, notifyUUID: NOTIFY });
+            this.activeService = SERVICE;
+        } catch {
+            await transport.startNotifications({ serviceUUID: SERVICE_ALT, notifyUUID: NOTIFY });
+            this.activeService = SERVICE_ALT;
+        }
         await this.authenticate();
     }
 
@@ -183,7 +194,7 @@ export class FunnyLxDriver implements IPrinterDriver {
 
     private write(data: Uint8Array): Promise<void> {
         return this.requireTransport().write(data, {
-            serviceUUID: SERVICE,
+            serviceUUID: this.activeService,
             writeUUID: WRITE,
             reliable: false
         });

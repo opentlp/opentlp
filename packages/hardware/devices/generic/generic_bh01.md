@@ -6,7 +6,11 @@ model: BH-01
 protocol:
   family: funny-lx
   variant: lx-d-direct
+  app: Fun Print
   vendor_app: com.lailaixiong.funnyprint
+  replaces_apps:
+    - Funny Print
+    - Dolewa Camera
 
 print:
   width_dots: 384
@@ -37,10 +41,9 @@ sources:
     url: https://github.com/Dejniel/TiMini-Print/tree/a9a456c4243132bad52c500e39bdec221fe98db9
     licence: Apache-2.0
     note: Associates the BH-01 marketing name with LX-D01 through LX-D09 Bluetooth names and the 384-dot direct LX protocol.
-  - kind: oss-project
-    url: https://github.com/josb25/BleWebler2/commit/b481ece
-    licence: MIT
-    note: Implements experimental LX-D/BH-01 detection, authentication and printing.
+  - kind: vendor-doc
+    url: https://play.google.com/store/apps/details?id=com.dolewa.camera
+    note: Dolewa Camera app decompilation confirms usage of the LaiLaiXiong (Funny Print) LX-D protocol and com.ask.printersdk for Dolewa thermal camera hardware.
 ---
 
 BH-01 is the marketing name recorded for the direct LX-D printer group. The

@@ -6,6 +6,8 @@ model: P11
 protocol:
   family: marklife-1f
   packet_prefix: "1f"
+  app: Marklife
+  vendor_app: com.feioou.deliprint.yxq
 
 print:
   width_dots: 96

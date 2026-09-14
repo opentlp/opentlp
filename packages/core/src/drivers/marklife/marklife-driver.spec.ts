@@ -56,6 +56,9 @@ describe('MarklifeDriver', () => {
         expect(driver.isCompatible('DP-L13')).toBe(false);
         expect(driver.isCompatible('LP90')).toBe(false);
         expect(driver.isCompatible('Silvercrest')).toBe(false);
+        expect(driver.isCompatible('LuckP_L80_1234')).toBe(false);
+        expect(driver.isCompatible('DP_L80_ABCD')).toBe(false);
+        expect(driver.isCompatible('L12_81E0')).toBe(false);
 
         const legacyDriver = new MarklifeDriver('legacy');
         expect(legacyDriver.isCompatible('L13_81E0')).toBe(true);
@@ -65,6 +68,11 @@ describe('MarklifeDriver', () => {
         expect(legacyDriver.isCompatible('Silvercrest Thermo Label Printer')).toBe(true);
         expect(legacyDriver.isCompatible('MUNBYN L13')).toBe(true);
         expect(legacyDriver.isCompatible('Luckjingle')).toBe(true);
+        expect(legacyDriver.isCompatible('LuckP_L80_1234')).toBe(true);
+        expect(legacyDriver.isCompatible('DP_L80_ABCD')).toBe(true);
+        expect(legacyDriver.isCompatible('APL82_5678')).toBe(true);
+        expect(legacyDriver.isCompatible('L12_81E0')).toBe(true);
+        expect(legacyDriver.isCompatible('MPL11_0000')).toBe(true);
         expect(legacyDriver.isCompatible('P12_PRO')).toBe(false);
         expect(legacyDriver.isCompatible('P50')).toBe(false);
     });

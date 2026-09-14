@@ -11,6 +11,10 @@ describe("NiimbotDriver", () => {
         const driver = new NiimbotDriver();
         expect(driver.isCompatible("NIIMBOT B21")).toBe(true);
         expect(driver.isCompatible("D110")).toBe(true);
+        expect(driver.isCompatible("D101")).toBe(true);
+        expect(driver.isCompatible("B3S_01")).toBe(true);
+        expect(driver.isCompatible("B203")).toBe(true);
+        expect(driver.isCompatible("H1-BLE")).toBe(true);
         expect(driver.isCompatible("Marklife P12")).toBe(false);
     });
 

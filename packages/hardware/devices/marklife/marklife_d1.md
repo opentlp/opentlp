@@ -6,6 +6,8 @@ model: D1
 protocol:
   family: marklife-1f
   packet_prefix: "1f"
+  app: Marklife
+  vendor_app: com.feioou.deliprint.yxq
 
 print:
   colour: monochrome
