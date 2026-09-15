@@ -215,6 +215,24 @@ Classic/SPP. No S001 GATT service and characteristic pair has been verified, so
 Web Bluetooth is rejected with an actionable error instead of guessing UUIDs
 from another YK-framed printer.
 
+## Nelko P21 / TSPL2 subset
+
+Implementation: `packages/core/src/drivers/nelko-p21`
+
+| Reference | Revision/licence | Facts used |
+| --- | --- | --- |
+| [merlinschumacher/nelko-p21-print](https://github.com/merlinschumacher/nelko-p21-print) | AGPL-3.0 | Bluetooth Classic SPP/RFCOMM transport at 115200 8N1, the `\x1b!o` cancel-pause preamble, the SIZE/GAP/DIRECTION/DENSITY/CLS/BITMAP/PRINT job order, the 96-dot/12-byte MSB-first raster, BCD `BATTERY?` reply layout and `CONFIG?` firmware layout. AGPL-3.0 source is not redistributed; only uncopyrightable protocol facts were used. |
+| [TylerCode/Fyne-P21-Print](https://github.com/TylerCode/Fyne-P21-Print) | MIT | Independent Go/Fyne implementation corroborating the 96-dot 12-mm geometry, 115200 8N1 serial framing, the cancel-pause preamble and the same TSPL2 subset. MIT-licensed; protocol facts only, no source copied. |
+| [TSC TSPL/TSPL2 Programming Manual 3.0](https://fs.tscprinters.com/system/files/31-0000001-00_tspl_tspl2_programming_3_0.pdf) | vendor programming specification | SIZE, GAP, DIRECTION, DENSITY, CLS, BITMAP and PRINT syntax and the BITMAP binary layout this subset is based on. |
+
+The Nelko P21 is a Bluetooth Classic label printer unrelated to the PeriPage
+raw-raster family despite the shared `P21` model stem. The TypeScript driver is
+a clean-room expression of the documented wire facts written against
+OpenTLP's `IPrinterDriver` and transport contracts. The proprietary `BATTERY?`
+and `CONFIG?` queries and the NFC consumable reader are not implemented, since
+they are out of scope for printing. No AGPL source, captures or assets are
+included in this repository.
+
 ## Researched but not yet implemented
 
 - [phomemo-tools](https://github.com/vivier/phomemo-tools), GPL-3.0, for public Phomemo protocol documentation only. No source code from this project is copied.

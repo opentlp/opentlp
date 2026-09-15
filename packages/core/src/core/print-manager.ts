@@ -22,6 +22,7 @@ import { PhomemoM04Driver } from "../drivers/phomemo-m04";
 import { PhomemoTsplDriver } from "../drivers/phomemo-tspl";
 import { OrgstaS001Driver } from "../drivers/yk";
 import { PeriPageDriver } from "../drivers/peripage";
+import { NelkoP21Driver } from "../drivers/nelko-p21";
 import { DummyDriver } from "../drivers/dummy";
 
 export interface PrintManagerEvents {
@@ -94,6 +95,7 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
         this.registerDriver(new PhomemoTsplDriver());
         this.registerDriver(new OrgstaS001Driver());
         this.registerDriver(new PeriPageDriver());
+        this.registerDriver(new NelkoP21Driver());
         // Dummy is intentionally last because it accepts any virtual device.
         this.registerDriver(new DummyDriver());
     }

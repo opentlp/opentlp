@@ -88,6 +88,10 @@ import { PeriPageDriver as _PeriPageDriver, PERIPAGE_MODELS } from "./drivers/pe
 export type PeriPageDriver = _PeriPageDriver;
 export const PeriPageDriver = _PeriPageDriver;
 export { PERIPAGE_MODELS };
+import { NelkoP21Driver as _NelkoP21Driver, NELKO_P21_MODELS } from "./drivers/nelko-p21";
+export type NelkoP21Driver = _NelkoP21Driver;
+export const NelkoP21Driver = _NelkoP21Driver;
+export { NELKO_P21_MODELS };
 
 import { NiimbotDriver as _NiimbotDriver } from "./drivers/niimbot";
 export type NiimbotDriver = _NiimbotDriver;
