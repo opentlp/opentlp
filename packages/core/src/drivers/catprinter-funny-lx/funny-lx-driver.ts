@@ -195,8 +195,7 @@ export class FunnyLxDriver implements IPrinterDriver {
     private write(data: Uint8Array): Promise<void> {
         return this.requireTransport().write(data, {
             serviceUUID: this.activeService,
-            writeUUID: WRITE,
-            reliable: false
+            writeUUID: WRITE
         });
     }
 

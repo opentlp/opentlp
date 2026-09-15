@@ -42,7 +42,7 @@ export interface IDeviceTransport extends EventEmitter<TransportEventMap> {
      * 
      * @param data The raw data buffer to transmit
      * @param characteristicsInfo Optional configuration indicating which channel to write to.
-     *                            Example: { serviceUUID: string, writeUUID: string, reliable?: boolean }
+     *                            Example: { serviceUUID: string, writeUUID: string }
      */
     write(data: Uint8Array, characteristicsInfo?: any): Promise<void>;
 

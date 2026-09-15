@@ -52,8 +52,7 @@ export class MarklifeFlowControl {
         if (transport.type && transport.type.toLowerCase().includes('usb')) {
             await transport.write(data, { 
                 serviceUUID, 
-                writeUUID: writeCharacteristicId, 
-                reliable: true 
+                writeUUID: writeCharacteristicId 
             });
             return;
         }
@@ -96,8 +95,7 @@ export class MarklifeFlowControl {
 
             await transport.write(chunk, { 
                 serviceUUID, 
-                writeUUID: writeCharacteristicId, 
-                reliable: true 
+                writeUUID: writeCharacteristicId 
             });
 
             offset += this.chunkSize;

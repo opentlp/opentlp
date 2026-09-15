@@ -106,8 +106,7 @@ export class CatPrinterV5gDriver implements IPrinterDriver {
         for (let index = 0; index < packets.length; index += 1) {
             await transport.write(packets[index], {
                 serviceUUID: SERVICE,
-                writeUUID: WRITE,
-                reliable: false
+                writeUUID: WRITE
             });
             if (index + 1 < packets.length) await new Promise(resolve => setTimeout(resolve, 6));
         }

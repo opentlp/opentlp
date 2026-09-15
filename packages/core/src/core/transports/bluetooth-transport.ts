@@ -73,7 +73,32 @@ export class UniversalBluetoothTransport extends EventEmitter<TransportEventMap>
             this.writeCharacteristics.set(characteristicsInfo.writeUUID, writeChar);
         }
 
-        await writeChar.writeValueWithoutResponse(data.buffer as ArrayBuffer);
+        // `data` may be a subarray view whose `.buffer` is larger than the
+        // payload (offset/length), so copy it into a tight buffer first;
+        // passing the underlying ArrayBuffer would transmit trailing garbage.
+        const payload: Uint8Array = (data.byteOffset === 0 && data.byteLength === data.buffer.byteLength)
+            ? data
+            : data.slice();
+
+        // The transport owns the write mode: it picks it from the
+        // characteristic's own GATT properties, not from a caller-supplied hint.
+        // Prefer write-without-response (fire-and-forget, the path the original
+        // BleWebler used and the one every supported printer was tested on);
+        // fall back to write-with-response only when the characteristic lacks
+        // write-without-response. `writeValue` is the deprecated all-rounder kept
+        // as a last resort for browsers that expose neither typed method.
+        const props = writeChar.properties;
+        const canWriteWithoutResponse = props ? Boolean(props.writeWithoutResponse) : true;
+        const targetChar = writeChar as any;
+        if (canWriteWithoutResponse && typeof targetChar.writeValueWithoutResponse === 'function') {
+            await targetChar.writeValueWithoutResponse(payload);
+        } else if (typeof targetChar.writeValueWithResponse === 'function') {
+            await targetChar.writeValueWithResponse(payload);
+        } else if (typeof targetChar.writeValue === 'function') {
+            await targetChar.writeValue(payload);
+        } else {
+            await targetChar.writeValueWithoutResponse(payload);
+        }
     }
 
     /**

@@ -156,16 +156,14 @@ export class CatPrinterMxw01Driver implements IPrinterDriver {
     private writeControl(data: Uint8Array): Promise<void> {
         return this.requireTransport().write(data, {
             serviceUUID: this.serviceUUID,
-            writeUUID: this.controlWriteUUID,
-            reliable: false
+            writeUUID: this.controlWriteUUID
         });
     }
 
     private writeData(data: Uint8Array): Promise<void> {
         return this.requireTransport().write(data, {
             serviceUUID: this.serviceUUID,
-            writeUUID: this.dataWriteUUID,
-            reliable: false
+            writeUUID: this.dataWriteUUID
         });
     }
 

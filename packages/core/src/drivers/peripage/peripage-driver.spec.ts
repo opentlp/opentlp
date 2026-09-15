@@ -21,7 +21,6 @@ interface CapturedWrite {
     options?: {
         serviceUUID?: string;
         writeUUID?: string;
-        reliable?: boolean;
     };
 }
 
@@ -60,7 +59,7 @@ class MockDeviceTransport extends EventEmitter<TransportEventMap> implements IDe
 
     async write(
         data: Uint8Array,
-        options?: { serviceUUID?: string; writeUUID?: string; reliable?: boolean }
+        options?: { serviceUUID?: string; writeUUID?: string }
     ): Promise<void> {
         this.writtenPackets.push(new Uint8Array(data));
         this.capturedWrites.push({ data: new Uint8Array(data), options });
@@ -229,13 +228,12 @@ describe('PeriPageDriver', () => {
         // 8. stop
         expect(transport.writtenPackets[8]).toEqual(new Uint8Array([0x10, 0xff, 0xfe, 0x45]));
 
-        // Verify characteristic args on EVERY write: { serviceUUID, writeUUID, reliable: false }
+        // Verify characteristic args on EVERY write: { serviceUUID, writeUUID }
         expect(transport.capturedWrites).toHaveLength(9);
         for (const write of transport.capturedWrites) {
             expect(write.options).toEqual({
                 serviceUUID: PERIPAGE_BLE_ENDPOINTS.service,
                 writeUUID: PERIPAGE_BLE_ENDPOINTS.write,
-                reliable: false,
             });
         }
     });

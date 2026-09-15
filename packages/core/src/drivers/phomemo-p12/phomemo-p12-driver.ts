@@ -130,7 +130,7 @@ export class PhomemoP12Driver implements IPrinterDriver {
     }
 
     private async write(data: Uint8Array): Promise<void> {
-        await this.requireTransport().write(data, { serviceUUID: SERVICE, writeUUID: WRITE, reliable: false });
+        await this.requireTransport().write(data, { serviceUUID: SERVICE, writeUUID: WRITE });
     }
 
     private async sendAndAwaitReply(data: Uint8Array): Promise<void> {

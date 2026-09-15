@@ -181,7 +181,7 @@ export class CatPrinterDriver implements IPrinterDriver {
         const transport = this.requireTransport();
         for (let offset = 0; offset < data.length; offset += 100) {
             await this.waitUntilResumed();
-            await transport.write(data.slice(offset, offset + 100), { serviceUUID: this.activeServiceUUID, writeUUID: WRITE, reliable: false });
+            await transport.write(data.slice(offset, offset + 100), { serviceUUID: this.activeServiceUUID, writeUUID: WRITE });
             if (offset + 100 < data.length) await new Promise(resolve => setTimeout(resolve, 5));
         }
     }
