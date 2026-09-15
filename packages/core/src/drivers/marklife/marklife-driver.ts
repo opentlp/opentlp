@@ -69,6 +69,15 @@ if (p12) {
 const p15 = marklife15mm.find(m => m.model === 'P15');
 if (p15) {
     p15.manualUrl = 'https://fcc.report/FCC-ID/2A2AI-P15/7600816.pdf';
+    p15.app = 'Marklife';
+    p15.replacesApps = ['Marklife'];
+    p15.supportLevel = 'Tested';
+    p15.connectionHints = {
+        bleHint: 'Turn on your printer, click Connect, and select your device (e.g. P15_... or P15_..._BLE) in the popup list.',
+        bluetoothClassicHint: 'Select the entry starting with "P15_" (do NOT select "P15_..._BLE").'
+    };
+    p15.notes = `Driven with the manufacturer's \`10 FF\` job framing (\`10 FF F1 02\` \u2026 \`10 FF F1 45\`)
+and an uncompressed \`GS v 0\` raster, which is exactly what the official Marklife app sends to this model.`;
 }
 
 const lp90 = marklife15mm.find(m => m.model === 'LP90');
@@ -221,7 +230,8 @@ export const MARKLIFE_HARDWARE_MODELS = [
  */
 export const LEGACY_L11_PREFIXES = [
     'LP90', 'L13', 'DP-L13', 'SILVERCREST', 'MUNBYN', 'LUCKJINGLE',
-    'LUCKP_', 'DP_', 'APL', 'MPL', 'LPD', 'PPL', 'L12', 'PPS1', 'BTW'
+    'LUCKP_', 'DP_', 'APL', 'MPL', 'LPD', 'PPL', 'L12', 'PPS1', 'BTW',
+    'P15', 'P15_', 'P15R', 'P15S', 'P11', 'P7', 'LP15'
 ];
 
 export type MarklifeDialect = 'auto' | 'standard' | 'legacy';
@@ -295,7 +305,9 @@ export class MarklifeDriver implements IPrinterDriver {
         this.replacesApps = dialect === 'legacy' ? ['Pocket Printer', 'Pocket Print'] : ['Marklife'];
         const isLegacy = (m: PrinterModelProfile) =>
             m.model === 'L13' || m.model === 'L12' || m.model === 'LP90' ||
-            m.id === 'marklife_l13' || m.id === 'marklife_l12' || m.id === 'marklife_lp90';
+            m.model === 'P15' || m.model === 'P11' || m.model === 'P7' || m.model === 'LP15' ||
+            m.id === 'marklife_l13' || m.id === 'marklife_l12' || m.id === 'marklife_lp90' ||
+            m.id === 'marklife_p15' || m.id === 'marklife_p11' || m.id === 'marklife_p7' || m.id === 'marklife_lp15';
         if (dialect === 'legacy') {
             this.supportedModels = MARKLIFE_HARDWARE_MODELS.filter(isLegacy);
             this.connectionRequirements = {
