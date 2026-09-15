@@ -102,9 +102,7 @@ export class CatPrinterV5cDriver implements IPrinterDriver {
         await this.waitUntilResumed();
         await this.requireTransport().write(packet, {
             serviceUUID: SERVICE,
-            writeUUID: WRITE,
-            reliable: false
-        });
+            writeUUID: WRITE});
         await new Promise(resolve => setTimeout(resolve, 4));
     }
 

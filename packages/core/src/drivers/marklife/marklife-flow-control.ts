@@ -50,10 +50,9 @@ export class MarklifeFlowControl {
         // If it's a USB transport, rely on the native hardware flow control of USB Bulk Endpoints
         // and bypass our artificial chunking entirely for maximum print speed.
         if (transport.type && transport.type.toLowerCase().includes('usb')) {
-            await transport.write(data, { 
-                serviceUUID, 
-                writeUUID: writeCharacteristicId, 
-                reliable: true 
+            await transport.write(data, {
+                serviceUUID,
+                writeUUID: writeCharacteristicId
             });
             return;
         }
@@ -94,10 +93,9 @@ export class MarklifeFlowControl {
             const end = Math.min(offset + this.chunkSize, data.length);
             const chunk = data.slice(offset, end);
 
-            await transport.write(chunk, { 
-                serviceUUID, 
-                writeUUID: writeCharacteristicId, 
-                reliable: true 
+            await transport.write(chunk, {
+                serviceUUID,
+                writeUUID: writeCharacteristicId
             });
 
             offset += this.chunkSize;

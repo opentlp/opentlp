@@ -97,25 +97,16 @@ export class CapacitorBleTransport extends EventEmitter<TransportEventMap> imple
         }
     }
 
-    public async write(data: Uint8Array, characteristicsInfo: { serviceUUID: string, writeUUID: string, reliable?: boolean }): Promise<void> {
+    public async write(data: Uint8Array, characteristicsInfo: { serviceUUID: string, writeUUID: string }): Promise<void> {
         if (!this.deviceId) throw new Error("Not connected");
 
         try {
-            if (characteristicsInfo.reliable) {
-                await BleClient.write(
-                    this.deviceId,
-                    characteristicsInfo.serviceUUID,
-                    characteristicsInfo.writeUUID,
-                    new DataView(data.buffer, data.byteOffset, data.byteLength)
-                );
-            } else {
-                await BleClient.writeWithoutResponse(
-                    this.deviceId,
-                    characteristicsInfo.serviceUUID,
-                    characteristicsInfo.writeUUID,
-                    new DataView(data.buffer, data.byteOffset, data.byteLength)
-                );
-            }
+            await BleClient.writeWithoutResponse(
+                this.deviceId,
+                characteristicsInfo.serviceUUID,
+                characteristicsInfo.writeUUID,
+                new DataView(data.buffer, data.byteOffset, data.byteLength)
+            );
         } catch (error: any) {
             console.error("[CapacitorBle] Write failed", error);
             throw error;

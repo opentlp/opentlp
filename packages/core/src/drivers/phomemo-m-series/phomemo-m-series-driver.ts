@@ -135,7 +135,7 @@ export class PhomemoMSeriesDriver implements IPrinterDriver {
     }
 
     private async send(data: Uint8Array, delayMs: number): Promise<void> {
-        await this.requireTransport().write(data, { serviceUUID: SERVICE, writeUUID: WRITE, reliable: false });
+        await this.requireTransport().write(data, { serviceUUID: SERVICE, writeUUID: WRITE});
         if (delayMs > 0) await new Promise(resolve => setTimeout(resolve, delayMs));
     }
 
@@ -144,9 +144,7 @@ export class PhomemoMSeriesDriver implements IPrinterDriver {
         for (let offset = 0; offset < data.length; offset += 128) {
             await transport.write(data.slice(offset, offset + 128), {
                 serviceUUID: SERVICE,
-                writeUUID: WRITE,
-                reliable: false
-            });
+                writeUUID: WRITE});
             if (offset + 128 < data.length) await new Promise(resolve => setTimeout(resolve, 20));
         }
     }

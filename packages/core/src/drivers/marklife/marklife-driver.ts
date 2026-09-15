@@ -527,7 +527,6 @@ export class MarklifeDriver implements IPrinterDriver {
         await this.transport.write(cmd, {
             serviceUUID: this.connectionRequirements.services[0],
             writeUUID: this.writeCharacteristicId,
-            reliable: true // Commands MUST be reliable
         });
         // Small delay to ensure command is processed by firmware
         await new Promise(r => setTimeout(r, 60));
@@ -573,9 +572,7 @@ export class MarklifeDriver implements IPrinterDriver {
             transport.on('data', onData);
             transport.write(new Uint8Array(packet), {
                 serviceUUID: INFO_SERVICE,
-                writeUUID: WRITE_CHAR,
-                reliable: true
-            }).catch(err => {
+                writeUUID: WRITE_CHAR}).catch(err => {
                 clearTimeout(timer);
                 transport.off('data', onData);
                 reject(toPrinterError(err, 'transport'));

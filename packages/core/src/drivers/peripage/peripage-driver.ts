@@ -173,7 +173,6 @@ export class PeriPageDriver implements IPrinterDriver {
         await this.transport.write(data, {
             serviceUUID: PERIPAGE_BLE_ENDPOINTS.service,
             writeUUID: PERIPAGE_BLE_ENDPOINTS.write,
-            reliable: false,
         });
     }
 }

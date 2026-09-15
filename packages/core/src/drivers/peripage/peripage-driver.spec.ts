@@ -229,13 +229,12 @@ describe('PeriPageDriver', () => {
         // 8. stop
         expect(transport.writtenPackets[8]).toEqual(new Uint8Array([0x10, 0xff, 0xfe, 0x45]));
 
-        // Verify characteristic args on EVERY write: { serviceUUID, writeUUID, reliable: false }
+        // Verify characteristic args on EVERY write: { serviceUUID, writeUUID }
         expect(transport.capturedWrites).toHaveLength(9);
         for (const write of transport.capturedWrites) {
             expect(write.options).toEqual({
                 serviceUUID: PERIPAGE_BLE_ENDPOINTS.service,
                 writeUUID: PERIPAGE_BLE_ENDPOINTS.write,
-                reliable: false,
             });
         }
     });
