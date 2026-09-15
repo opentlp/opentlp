@@ -6,6 +6,8 @@ model: P15
 protocol:
   family: marklife-1f
   packet_prefix: "1f"
+  app: Marklife
+  vendor_app: com.feioou.deliprint.yxq
 
 print:
   width_dots: 96
@@ -21,16 +23,28 @@ connectivity:
     service_uuid: 0000ff00-0000-1000-8000-00805f9b34fb
     write_uuid: 0000ff02-0000-1000-8000-00805f9b34fb
     name_pattern: "P15"
+    name_examples: [P15, P15_..._BLE]
 
-status: unverified
+reports: [battery, faults, device-name, serial-number, firmware-version, hardware-version]
+
+status: verified
 
 sources:
-  - kind: catalogue
-    note: >-
-      Transcribed from a driver's model table; specifications not confirmed against hardware.
+  - kind: user-report
+    note: Driven using the legacy L11 ESC/POS protocol path.
+  - kind: vendor-doc
+    title: Marklife Android app decompilation (com.feioou.deliprint.yxq)
+    note: Confirmed protocolType = 0 (L11 command path) in P15.java and DeviceManager.java.
+
 ---
 
-Catalogued from a driver's model table as part of the
-[marklife-1f family](marklife-1f.html). The printhead width and the GATT service
-are what that table records; nothing here has been checked against hardware, and
-whether this model shares a dialect with the 15 mm members is unconfirmed.
+15 mm label maker manufactured by Shenzhen Yinxiaoqian Technology Co., Ltd.
+Sold under the Marklife brand and companion to the official Marklife app.
+
+## Protocol notes
+
+Unlike the P12 which uses modern `1F` job framing (`protocolType = 4`), the P15 firmware
+speaks the manufacturer's legacy "L11" command framing (`protocolType = 0` in the official APK).
+Jobs are initiated with a 15-byte zero wake-up, `10 FF F1 02` enable, an uncompressed `GS v 0`
+raster, `1D 0C` gap positioning (or `1B 4A` continuous feed), and closed with `10 FF F1 45`.
+Device info and battery queries use the `10 FF` command family over the ISSC service.

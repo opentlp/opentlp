@@ -73,7 +73,13 @@ export class UniversalBluetoothTransport extends EventEmitter<TransportEventMap>
             this.writeCharacteristics.set(characteristicsInfo.writeUUID, writeChar);
         }
 
-        await writeChar.writeValueWithoutResponse(data.buffer as ArrayBuffer);
+        // `data` may be a subarray view whose `.buffer` is larger than the
+        // payload (offset/length), so copy it into a tight buffer first;
+        // passing the underlying ArrayBuffer would transmit trailing garbage.
+        const payload: Uint8Array = (data.byteOffset === 0 && data.byteLength === data.buffer.byteLength)
+            ? data
+            : data.slice();
+        await writeChar.writeValueWithoutResponse(payload.buffer as ArrayBuffer);
     }
 
     /**
