@@ -18,7 +18,7 @@ platforms:
     id: 1533722247
     url: https://apps.apple.com/app/luck-jingle/id1533722247
 protocols:
-  - marklife-1f
+  - marklife
 replaces_apps:
   - Luck Jingle
   - LuckPrinter

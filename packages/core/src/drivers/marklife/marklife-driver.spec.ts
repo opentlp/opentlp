@@ -65,7 +65,7 @@ describe('MarklifeDriver', () => {
         expect(driver.isCompatible('P7')).toBe(false);
         expect(driver.isCompatible('LP15')).toBe(false);
 
-        const legacyDriver = new MarklifeDriver('legacy');
+        const legacyDriver = new MarklifeDriver('0x10ff');
         expect(legacyDriver.isCompatible('L13_81E0')).toBe(true);
         expect(legacyDriver.isCompatible('L13_81E0_BLE')).toBe(true);
         expect(legacyDriver.isCompatible('DP-L13')).toBe(true);
@@ -77,34 +77,34 @@ describe('MarklifeDriver', () => {
         expect(legacyDriver.isCompatible('DP_L80_ABCD')).toBe(true);
         expect(legacyDriver.isCompatible('APL82_5678')).toBe(true);
         expect(legacyDriver.isCompatible('L12_81E0')).toBe(true);
+        expect(legacyDriver.isCompatible('MPL11_0000')).toBe(true);
         expect(legacyDriver.isCompatible('P15_AB12_BLE')).toBe(true);
         expect(legacyDriver.isCompatible('P15')).toBe(true);
         expect(legacyDriver.isCompatible('P11')).toBe(true);
         expect(legacyDriver.isCompatible('P7')).toBe(true);
         expect(legacyDriver.isCompatible('LP15')).toBe(true);
-        expect(legacyDriver.isCompatible('MPL11_0000')).toBe(true);
         expect(legacyDriver.isCompatible('P12_PRO')).toBe(false);
         expect(legacyDriver.isCompatible('P50')).toBe(false);
     });
 
     it('scopes supported models between standard and legacy dialects', () => {
-        const legacyDriver = new MarklifeDriver('legacy');
+        const legacyDriver = new MarklifeDriver('0x10ff');
         expect(legacyDriver.supportedModels.some(m => m.id === 'marklife_p15')).toBe(true);
         expect(legacyDriver.supportedModels.some(m => m.id === 'marklife_p12')).toBe(false);
 
-        const standardDriver = new MarklifeDriver('standard');
+        const standardDriver = new MarklifeDriver('0x1f');
         expect(standardDriver.supportedModels.some(m => m.id === 'marklife_p15')).toBe(false);
         expect(standardDriver.supportedModels.some(m => m.id === 'marklife_p12')).toBe(true);
     });
 
     it('configures model-specific capabilities via setModel', async () => {
-        const legacyDriver = new MarklifeDriver('legacy');
+        const legacyDriver = new MarklifeDriver('0x10ff');
         legacyDriver.setModel('marklife_l13');
         const transport = new MockTransport('/dev/rfcomm0');
         await legacyDriver.bindTransport(transport);
         expect(legacyDriver.getCapabilities()).toMatchObject({
             canvasHeightPx: 96,
-            driverName: 'Marklife (Legacy L11)'
+            driverName: 'Marklife (0x10FF)'
         });
     });
 
@@ -125,7 +125,7 @@ describe('MarklifeDriver', () => {
         expect(driver.getCapabilities()).toMatchObject({
             canvasHeightPx: 96,
             supportsSpeedMode: false,
-            driverName: 'Marklife (Legacy L11)'
+            driverName: 'Marklife (0x10FF)'
         });
     });
 
@@ -139,7 +139,7 @@ describe('MarklifeDriver', () => {
 
         expect(driver.getCapabilities()).toMatchObject({
             canvasHeightPx: 96,
-            driverName: 'Marklife (Legacy L11)'
+            driverName: 'Marklife (0x10FF)'
         });
     });
 
@@ -280,10 +280,10 @@ describe('MarklifeDriver', () => {
         }
 
         const serialTransport = new MockSerialTransport();
-        const legacyDriver = new MarklifeDriver('legacy');
+        const legacyDriver = new MarklifeDriver('0x10ff');
         await legacyDriver.bindTransport(serialTransport);
 
-        expect(legacyDriver.getCapabilities().driverName).toBe('Marklife (Legacy L11)');
+        expect(legacyDriver.getCapabilities().driverName).toBe('Marklife (0x10FF)');
 
         await legacyDriver.printInit({
             paper: { id: 'continuous', name: 'Continuous', type: 'continuous', tapeWidthMm: 15 },
@@ -323,31 +323,32 @@ describe('MarklifeDriver', () => {
         // No probe bytes should be sent during bindTransport
         expect(serialTransport.writes).toHaveLength(0);
 
-        // Capabilities should have automatically resolved to L13 (96px, Legacy L11)
+        // Capabilities should have automatically resolved to L13 (96px, 0x10FF)
         expect(autoDriver.getCapabilities()).toMatchObject({
             canvasHeightPx: 96,
-            driverName: 'Marklife (Legacy L11)'
+            driverName: 'Marklife (0x10FF)'
         });
     });
 
     it('driver with legacy dialect forces L11 framing even on generic names', async () => {
-        const legacyDriver = new MarklifeDriver('legacy');
+        const legacyDriver = new MarklifeDriver('0x10ff');
         const genericTransport = new MockTransport('Unknown Serial Printer');
         await legacyDriver.bindTransport(genericTransport);
 
         expect(legacyDriver.getCapabilities()).toMatchObject({
-            driverName: 'Marklife (Legacy L11)'
+            driverName: 'Marklife (0x10FF)'
         });
-        expect(legacyDriver.name).toBe('Marklife-Legacy-L11');
+        expect(legacyDriver.name).toBe('Marklife-0x10FF');
     });
-    it('drives Marklife P15 through the legacy job framing with 0x02 enable byte', async () => {
+
+    it('drives Marklife P15 through the 0x10FF job framing with 0x02 enable byte', async () => {
         const transport = new MockTransport('P15_AB12_BLE');
-        const legacyDriver = new MarklifeDriver('legacy');
+        const legacyDriver = new MarklifeDriver('0x10ff');
         await legacyDriver.bindTransport(transport);
 
         expect(legacyDriver.getCapabilities()).toMatchObject({
             canvasHeightPx: 96,
-            driverName: 'Marklife (Legacy L11)'
+            driverName: 'Marklife (0x10FF)'
         });
 
         await legacyDriver.printInit({
@@ -371,5 +372,4 @@ describe('MarklifeDriver', () => {
         const endBytes = job.slice(job.length - 4);
         expect([...endBytes]).toEqual([0x10, 0xff, 0xf1, 0x45]);
     });
-
 });

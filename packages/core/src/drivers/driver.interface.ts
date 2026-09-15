@@ -236,7 +236,7 @@ export interface UniversalImageData {
  */
 export interface IPrinterDriver {
     /**
-     * Driver identifier (e.g., "Marklife-Protocol-0x1F", "Niimbot-B21")
+     * Driver identifier (e.g., "Marklife-0x1F", "Niimbot-B21")
      */
     readonly name: string;
 

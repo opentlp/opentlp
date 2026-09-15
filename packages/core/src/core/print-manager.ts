@@ -74,7 +74,7 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
         super();
         this.logger = logger ?? (() => {});
         this.registerDriver(new MarklifeDriver('auto'));
-        this.registerDriver(new MarklifeDriver('legacy'));
+        this.registerDriver(new MarklifeDriver('0x10ff'));
         this.registerDriver(new NiimbotDriver());
         this.registerDriver(new CatPrinterDriver('standard'));
         this.registerDriver(new CatPrinterDriver('prefixed'));
@@ -267,13 +267,13 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
                 return this.registeredDrivers.find(d => d.name.includes('Catprinter (Tiny'));
             }
             if (key === 'pocket_print_label' || key === 'pocket_printer_label') {
-                return this.registeredDrivers.find(d => d.name.includes('Legacy') || (d.replacesApps?.includes('Pocket Printer') && d.defaultKind === 'label'));
+                return this.registeredDrivers.find(d => d.name.includes('0x10FF') || (d.replacesApps?.includes('Pocket Printer') && d.defaultKind === 'label'));
             }
             if (key === 'tiny_print') {
                 return this.registeredDrivers.find(d => d.name.includes('Catprinter (Tiny'));
             }
             if (key === 'marklife') {
-                return this.registeredDrivers.find(d => d.name.includes('Marklife-Protocol-0x1F'));
+                return this.registeredDrivers.find(d => d.name.includes('Marklife-0x1F'));
             }
             if (key === 'niimbot') {
                 return this.registeredDrivers.find(d => d.name.includes('Niimbot'));

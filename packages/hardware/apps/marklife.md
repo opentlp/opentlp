@@ -16,7 +16,7 @@ platforms:
     id: 1540535142
     url: https://apps.apple.com/app/marklife/id1540535142
 protocols:
-  - marklife-1f
+  - marklife
 replaces_apps:
   - Marklife
 popular_models:
@@ -46,7 +46,7 @@ The app icon features a salmon/coral red bird/origami emblem on a pure white bac
 
 ## Protocol & Wire Format
 
-All standard Marklife printers driven by this application communicate over Bluetooth Low Energy using the [marklife-1f](marklife-1f.html) command set:
+All standard Marklife printers driven by this application communicate over Bluetooth Low Energy using the [marklife](marklife.html) command set:
 - **Packet Prefix**: `0x1F`
 - **Compression**: Custom zlib compression with non-default `windowBits: 10` (stream header `28 91`).
 - **Telemetry**: Bidirectional status reporting indicating battery percentage, loaded label tape dimensions, gap markers, and print errors.

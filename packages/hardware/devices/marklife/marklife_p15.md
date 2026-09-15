@@ -2,11 +2,13 @@
 id: marklife_p15
 brand: Marklife
 model: P15
+
 protocol:
-  family: marklife-1f
+  family: marklife
   packet_prefix: "10 ff"
   app: Marklife
   vendor_app: com.feioou.deliprint.yxq
+
 print:
   width_dots: 96
   width_mm: 12
@@ -15,6 +17,7 @@ print:
   colour_planes: 1
   max_density: 15
   speed_mode: false
+
 connectivity:
   ble:
     service_uuid: 0000ff00-0000-1000-8000-00805f9b34fb
@@ -25,13 +28,16 @@ connectivity:
 reports: [battery, faults, device-name, serial-number, firmware-version, hardware-version]
 
 status: verified
+
 sources:
   - kind: user-report
     note: Driven using the legacy L11 ESC/POS protocol path.
   - kind: vendor-doc
     title: Marklife Android app decompilation (com.feioou.deliprint.yxq)
     note: Confirmed protocolType = 0 (L11 command path) in P15.java and DeviceManager.java.
+
 ---
+
 15 mm label maker manufactured by Shenzhen Yinxiaoqian Technology Co., Ltd.
 Sold under the Marklife brand and companion to the official Marklife app.
 

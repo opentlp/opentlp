@@ -217,7 +217,7 @@ describe('PrintManager', () => {
         expect(idleEvent).toHaveBeenCalled();
     });
 
-    it('automatically matches L13_81E0 to Marklife-Legacy-L11 without ambiguous driver error', async () => {
+    it('automatically matches L13_81E0 to Marklife-0x10FF without ambiguous driver error', async () => {
         const transport = new FastMockTransport('L13_81E0', ['0000ff00-0000-1000-8000-00805f9b34fb']);
         const connectedEvent = vi.fn();
         printManager.on('connected', connectedEvent);
@@ -225,10 +225,10 @@ describe('PrintManager', () => {
         await printManager.connect(transport);
         expect(connectedEvent).toHaveBeenCalled();
         const boundDriver = connectedEvent.mock.calls[0][0];
-        expect(boundDriver.name).toBe('Marklife-Legacy-L11');
+        expect(boundDriver.name).toBe('Marklife-0x10FF');
     });
 
-    it('automatically matches DP-L13 to Marklife-Legacy-L11', async () => {
+    it('automatically matches DP-L13 to Marklife-0x10FF', async () => {
         const transport = new FastMockTransport('DP-L13');
         const connectedEvent = vi.fn();
         printManager.on('connected', connectedEvent);
@@ -236,10 +236,10 @@ describe('PrintManager', () => {
         await printManager.connect(transport);
         expect(connectedEvent).toHaveBeenCalled();
         const boundDriver = connectedEvent.mock.calls[0][0];
-        expect(boundDriver.name).toBe('Marklife-Legacy-L11');
+        expect(boundDriver.name).toBe('Marklife-0x10FF');
     });
 
-    it('automatically matches P50_B8F0 to Marklife-Protocol-0x1F', async () => {
+    it('automatically matches P50_B8F0 to Marklife-0x1F', async () => {
         const transport = new FastMockTransport('P50_B8F0', ['0000ff00-0000-1000-8000-00805f9b34fb']);
         const connectedEvent = vi.fn();
         printManager.on('connected', connectedEvent);
@@ -247,7 +247,7 @@ describe('PrintManager', () => {
         await printManager.connect(transport);
         expect(connectedEvent).toHaveBeenCalled();
         const boundDriver = connectedEvent.mock.calls[0][0];
-        expect(boundDriver.name).toBe('Marklife-Protocol-0x1F');
+        expect(boundDriver.name).toBe('Marklife-0x1F');
         expect(printManager.getActiveDriverServiceUuids()).toContain('0000ff00-0000-1000-8000-00805f9b34fb');
     });
 
@@ -259,7 +259,7 @@ describe('PrintManager', () => {
         await printManager.connect(transport, undefined, 'marklife_l13');
         expect(connectedEvent).toHaveBeenCalled();
         const boundDriver = connectedEvent.mock.calls[0][0];
-        expect(boundDriver.name).toBe('Marklife-Legacy-L11');
+        expect(boundDriver.name).toBe('Marklife-0x10FF');
     });
 
     it('throws ambiguous driver error when P12 connects without a model preference', async () => {
@@ -267,7 +267,7 @@ describe('PrintManager', () => {
         await expect(printManager.connect(transport)).rejects.toThrow(/match multiple drivers/i);
     });
 
-    it('disambiguates P12 to Marklife-Protocol-0x1F when marklife_p12 model is selected', async () => {
+    it('disambiguates P12 to Marklife-0x1F when marklife_p12 model is selected', async () => {
         const transport = new FastMockTransport('P12_B123', ['0000ff00-0000-1000-8000-00805f9b34fb']);
         const connectedEvent = vi.fn();
         printManager.on('connected', connectedEvent);
@@ -275,7 +275,7 @@ describe('PrintManager', () => {
         await printManager.connect(transport, undefined, 'marklife_p12');
         expect(connectedEvent).toHaveBeenCalled();
         const boundDriver = connectedEvent.mock.calls[0][0];
-        expect(boundDriver.name).toBe('Marklife-Protocol-0x1F');
+        expect(boundDriver.name).toBe('Marklife-0x1F');
     });
 
     it('disambiguates P12 to Phomemo P12/A30 when phomemo_p12 model is selected', async () => {
@@ -298,9 +298,9 @@ describe('PrintManager', () => {
         expect(diagnostic.discoveredServices).toContain('0000ff00-0000-1000-8000-00805f9b34fb');
 
         const candidateNames = diagnostic.candidates.map(c => c.driverName);
-        expect(candidateNames).toContain('Marklife-Protocol-0x1F');
+        expect(candidateNames).toContain('Marklife-0x1F');
         expect(candidateNames).toContain('Phomemo P12/A30');
-        expect(diagnostic.suggestedDriver).toBe('Marklife-Protocol-0x1F');
+        expect(diagnostic.suggestedDriver).toBe('Marklife-0x1F');
     });
 
     it('populates app, kind, and supportedTransports on available profiles', () => {
@@ -331,7 +331,7 @@ describe('PrintManager', () => {
     it('finds driver by mobile app name and optional kind', () => {
         const marklifeDriver = printManager.getDriverForApp('Marklife');
         expect(marklifeDriver).toBeDefined();
-        expect(marklifeDriver?.name).toBe('Marklife-Protocol-0x1F');
+        expect(marklifeDriver?.name).toBe('Marklife-0x1F');
 
         const tinyDriver = printManager.getDriverForApp('Tiny Print');
         expect(tinyDriver).toBeDefined();
@@ -344,11 +344,11 @@ describe('PrintManager', () => {
         // Can find by both "Pocket Printer" and "Pocket Print"
         const pocketPrinterLabel = printManager.getDriverForApp('Pocket Printer', 'label');
         expect(pocketPrinterLabel).toBeDefined();
-        expect(pocketPrinterLabel?.name).toBe('Marklife-Legacy-L11');
+        expect(pocketPrinterLabel?.name).toBe('Marklife-0x10FF');
 
         const pocketPrintLabel = printManager.getDriverForApp('Pocket Print', 'label');
         expect(pocketPrintLabel).toBeDefined();
-        expect(pocketPrintLabel?.name).toBe('Marklife-Legacy-L11');
+        expect(pocketPrintLabel?.name).toBe('Marklife-0x10FF');
 
         const pocketPrinterPocket = printManager.getDriverForApp('Pocket Printer', 'pocket');
         expect(pocketPrinterPocket).toBeDefined();
@@ -386,9 +386,9 @@ describe('PrintManager', () => {
     });
 
     it('resolves driver from auto: app profile IDs in getDriverForModel', () => {
-        expect(printManager.getDriverForModel('auto:marklife')?.name).toBe('Marklife-Protocol-0x1F');
-        expect(printManager.getDriverForModel('auto:pocket_print_label')?.name).toBe('Marklife-Legacy-L11');
-        expect(printManager.getDriverForModel('auto:pocket_printer_label')?.name).toBe('Marklife-Legacy-L11');
+        expect(printManager.getDriverForModel('auto:marklife')?.name).toBe('Marklife-0x1F');
+        expect(printManager.getDriverForModel('auto:pocket_print_label')?.name).toBe('Marklife-0x10FF');
+        expect(printManager.getDriverForModel('auto:pocket_printer_label')?.name).toBe('Marklife-0x10FF');
         expect(printManager.getDriverForModel('auto:pocket_print_pocket')?.name).toContain('Catprinter (Tiny');
         expect(printManager.getDriverForModel('auto:pocket_printer_pocket')?.name).toContain('Catprinter (Tiny');
         expect(printManager.getDriverForModel('auto:pocket_print_pocket')?.name).toContain('Catprinter (Tiny');

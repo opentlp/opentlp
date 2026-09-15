@@ -12,8 +12,8 @@ aliases:
 summary: 15 mm label maker sold under several brands (SilverCrest, Crafts&Co, MUNBYN); companion to Karsten International's Pocket Printer app and speaks Marklife legacy protocol.
 
 protocol:
-  family: marklife-1f
-  packet_prefix: "1f"
+  family: marklife
+  packet_prefix: "10 ff"
   app: Pocket Printer
   vendor_app: com.printer.lidloffice
   replaces_apps:

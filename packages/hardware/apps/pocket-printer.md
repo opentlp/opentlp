@@ -18,7 +18,7 @@ platforms:
     url: https://apps.apple.com/app/pocket-printer/id6444190726
 protocols:
   - catprinter-v5x
-  - marklife-1f
+  - marklife
 replaces_apps:
   - Pocket Printer
   - Pocket Print
@@ -50,6 +50,6 @@ sources:
 Pocket Printer is a **multi-device application**. Unlike single-protocol companion apps, the app bundles two completely unrelated driver engines depending on which device model the user connects:
 
 1. **Continuous 58 mm Pocket Printers**: Communicates using the [catprinter-v5x](catprinter-v5x.html) protocol family (GB01, MX-series variants).
-2. **15 mm Tape Label Makers**: Communicates using the [marklife-1f](marklife-1f.html) protocol family, specifically the OEM Marklife L13 platform sold under Lidl SilverCrest and Crafts & Co branding.
+2. **15 mm Tape Label Makers**: Communicates using the [marklife](marklife.html) protocol family, specifically the OEM Marklife L13 platform sold under Lidl SilverCrest and Crafts & Co branding.
 
 OpenTLP detects this distinction and provides protocol disambiguation when Pocket Printer is selected.

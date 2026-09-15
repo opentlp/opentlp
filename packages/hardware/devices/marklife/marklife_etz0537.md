@@ -4,7 +4,7 @@ brand: Marklife
 model: ET-Z0537
 
 protocol:
-  family: marklife-1f
+  family: marklife
   packet_prefix: "1f"
   app: Marklife
   vendor_app: com.feioou.deliprint.yxq

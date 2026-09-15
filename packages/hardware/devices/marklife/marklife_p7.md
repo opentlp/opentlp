@@ -4,8 +4,8 @@ brand: Marklife
 model: P7
 
 protocol:
-  family: marklife-1f
-  packet_prefix: "1f"
+  family: marklife
+  packet_prefix: "10 ff"
   app: Marklife
   vendor_app: com.feioou.deliprint.yxq
 
@@ -33,6 +33,6 @@ sources:
 ---
 
 Catalogued from a driver's model table as part of the
-[marklife-1f family](marklife-1f.html). The printhead width and the GATT service
+[marklife family](marklife.html). The printhead width and the GATT service
 are what that table records; nothing here has been checked against hardware, and
 whether this model shares a dialect with the 15 mm members is unconfirmed.

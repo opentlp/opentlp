@@ -129,7 +129,7 @@
       "properties": {
         "family": {
           "type": "string",
-          "description": "Protocol family slug, e.g. 'tiny', 'niimbot', 'esc-pos', 'tspl', 'zpl', 'brother-raster', 'marklife-1f'. Devices sharing a family are driven by the same code."
+          "description": "Protocol family slug, e.g. 'tiny', 'niimbot', 'esc-pos', 'tspl', 'zpl', 'brother-raster', 'marklife'. Devices sharing a family are driven by the same code."
         },
         "variant": {
           "type": "string",
