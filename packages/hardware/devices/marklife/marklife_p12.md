@@ -55,7 +55,7 @@ artwork:
       colours: { printer-body: "#a8ddba", printer-cutter: "#ffffff" }
 
 protocol:
-  family: marklife-1f
+  family: marklife
   packet_prefix: "1f"
 
 print:

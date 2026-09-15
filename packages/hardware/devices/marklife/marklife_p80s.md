@@ -4,7 +4,7 @@ brand: Marklife
 model: P80S
 
 protocol:
-  family: marklife-1f
+  family: marklife
   packet_prefix: "1f"
 
 print:
@@ -31,6 +31,6 @@ sources:
 ---
 
 Catalogued from a driver's model table as part of the
-[marklife-1f family](marklife-1f.html). The printhead width and the GATT service
+[marklife family](marklife.html). The printhead width and the GATT service
 are what that table records; nothing here has been checked against hardware, and
 whether this model shares a dialect with the 15 mm members is unconfirmed.

@@ -1,5 +1,5 @@
 ---
-id: marklife-1f
+id: marklife
 name: Marklife 0x1F
 summary: 15–72 mm label makers that answer questions — battery, media and faults.
 transports: [ble]

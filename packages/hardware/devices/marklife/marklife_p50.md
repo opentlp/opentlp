@@ -17,7 +17,7 @@ artwork:
     - --printer-outline
 
 protocol:
-  family: marklife-1f
+  family: marklife
   packet_prefix: "1f"
 
 print:
@@ -50,7 +50,7 @@ sources:
 
 ## Protocol notes
 
-Recorded as [`marklife-1f`](marklife-1f.html) on the strength of the family it
+Recorded as [`marklife`](marklife.html) on the strength of the family it
 is catalogued with. This has not been confirmed against hardware, and the 48 mm
 members of the family may not share a dialect with the 15 mm ones.
 

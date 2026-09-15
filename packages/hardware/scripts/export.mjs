@@ -130,7 +130,7 @@ function resolveApp(device) {
     if (family === 'funny-lx') return 'Fun Print';
     if (family === 'mxw01') return 'WalkPrint';
     if (family === 'peripage') return 'PeriPage';
-    if (family === 'marklife-1f' || family === 'marklife') return 'Marklife';
+    if (family === 'marklife') return 'Marklife';
     if (family === 'niimbot') return 'NIIMBOT';
     return null;
 }

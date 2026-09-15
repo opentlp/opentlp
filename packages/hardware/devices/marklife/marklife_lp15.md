@@ -4,8 +4,8 @@ brand: Marklife
 model: LP15
 
 protocol:
-  family: marklife-1f
-  packet_prefix: "1f"
+  family: marklife
+  packet_prefix: "10 ff"
 
 print:
   width_dots: 96

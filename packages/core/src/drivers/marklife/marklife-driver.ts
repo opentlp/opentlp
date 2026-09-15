@@ -76,7 +76,7 @@ if (p15) {
         bleHint: 'Turn on your printer, click Connect, and select your device (e.g. P15_... or P15_..._BLE) in the popup list.',
         bluetoothClassicHint: 'Select the entry starting with "P15_" (do NOT select "P15_..._BLE").'
     };
-    p15.notes = `Driven with the manufacturer's legacy "L11" job framing (\`10 FF F1 02\` \u2026 \`10 FF F1 45\`)
+    p15.notes = `Driven with the manufacturer's \`10 FF\` job framing (\`10 FF F1 02\` \u2026 \`10 FF F1 45\`)
 and an uncompressed \`GS v 0\` raster, which is exactly what the official Marklife app sends to this model.`;
 }
 
@@ -84,8 +84,8 @@ const lp90 = marklife15mm.find(m => m.model === 'LP90');
 if (lp90) {
     // Korean-market 15 mm unit. The manufacturer's own app files it with the
     // P12 everywhere that matters — same 96-dot head, same label sizes, same
-    // density table — but drives it through its older "L11" command path
-    // (see LEGACY_L11_PREFIXES below) rather than the P12's 1F job control.
+    // density table — but drives it through its older `10 FF` command path
+    // (see MARKLIFE_10FF_PREFIXES below) rather than the P12's 1F job control.
     lp90.notes = `Sold in Korea; the manufacturer's app treats it as a P12-class 96-dot printer.
 
 Driven with the manufacturer's legacy job framing (\`10 FF F1 02\` … \`10 FF F1 45\`)
@@ -100,7 +100,7 @@ if (l13) {
     l13.manualUrl = 'https://manuals.plus/munbyn/l13-label-printer-manual';
     // Confirmed working against a real unit over the legacy job path the
     // official app and the original BleWebler both use (see
-    // LEGACY_L11_PREFIXES). The standard `1F` job framing prints nothing on
+    // MARKLIFE_10FF_PREFIXES). The standard `1F` job framing prints nothing on
     // some firmware revisions.
     l13.supportLevel = 'Tested';
     // Marklife appears to be the OEM's own brand, but they do not sell an L13
@@ -214,7 +214,7 @@ export const MARKLIFE_HARDWARE_MODELS = [
 // the UI uses its neutral fallback for all other models.
 
 /**
- * Models the manufacturer's app drives through its older "L11" path instead of
+ * Models the manufacturer's app drives through its `10 FF` path instead of
  * the `1F` job framing: a 15-byte wake-up, `10 FF F1 02` to open the job, an
  * uncompressed `GS v 0` raster, `1D 0C` (gap) or `1B 4A n` (continuous) to
  * position the label, and `10 FF F1 45` to close. None of the `1F 80`, `1F C0`,
@@ -228,13 +228,13 @@ export const MARKLIFE_HARDWARE_MODELS = [
  *
  * Matched on the advertised name prefix, the same way the official app does.
  */
-export const LEGACY_L11_PREFIXES = [
+export const MARKLIFE_10FF_PREFIXES = [
     'LP90', 'L13', 'DP-L13', 'SILVERCREST', 'MUNBYN', 'LUCKJINGLE',
     'LUCKP_', 'DP_', 'APL', 'MPL', 'LPD', 'PPL', 'L12', 'PPS1', 'BTW',
     'P15', 'P15_', 'P15R', 'P15S', 'P11', 'P7', 'LP15'
 ];
 
-export type MarklifeDialect = 'auto' | 'standard' | 'legacy';
+export type MarklifeDialect = 'auto' | '0x1f' | '0x10ff';
 
 /**
  * Marklife's `0x1F` protocol, and the `10 FF` INFO command family beside it.
@@ -300,22 +300,22 @@ export class MarklifeDriver implements IPrinterDriver {
     private detectedModel: string | null = null;
 
     constructor(public readonly dialect: MarklifeDialect = 'auto') {
-        this.name = dialect === 'legacy' ? "Marklife-Legacy-L11" : "Marklife-Protocol-0x1F";
-        this.app = dialect === 'legacy' ? 'Pocket Printer' : 'Marklife';
-        this.replacesApps = dialect === 'legacy' ? ['Pocket Printer', 'Pocket Print'] : ['Marklife'];
+        this.name = dialect === '0x10ff' ? "Marklife-0x10FF" : "Marklife-0x1F";
+        this.app = dialect === '0x10ff' ? 'Pocket Printer' : 'Marklife';
+        this.replacesApps = dialect === '0x10ff' ? ['Pocket Printer', 'Pocket Print'] : ['Marklife'];
         const isLegacy = (m: PrinterModelProfile) =>
             m.model === 'L13' || m.model === 'L12' || m.model === 'LP90' ||
             m.model === 'P15' || m.model === 'P11' || m.model === 'P7' || m.model === 'LP15' ||
             m.id === 'marklife_l13' || m.id === 'marklife_l12' || m.id === 'marklife_lp90' ||
             m.id === 'marklife_p15' || m.id === 'marklife_p11' || m.id === 'marklife_p7' || m.id === 'marklife_lp15';
-        if (dialect === 'legacy') {
+        if (dialect === '0x10ff') {
             this.supportedModels = MARKLIFE_HARDWARE_MODELS.filter(isLegacy);
             this.connectionRequirements = {
                 services: [
                     '0000ff00-0000-1000-8000-00805f9b34fb',
                     '49535343-fe7d-4ae5-8fa9-9fafd205e455'
                 ],
-                namePrefixes: [...LEGACY_L11_PREFIXES]
+                namePrefixes: [...MARKLIFE_10FF_PREFIXES]
             };
         } else {
             this.supportedModels = MARKLIFE_HARDWARE_MODELS.filter(m => !isLegacy(m));
@@ -325,7 +325,7 @@ export class MarklifeDriver implements IPrinterDriver {
                     '49535343-fe7d-4ae5-8fa9-9fafd205e455'
                 ],
                 namePrefixes: [
-                    ...MARKLIFE_PROFILES.flatMap(p => p.prefixes).filter(p => !LEGACY_L11_PREFIXES.includes(p.toUpperCase())),
+                    ...MARKLIFE_PROFILES.flatMap(p => p.prefixes).filter(p => !MARKLIFE_10FF_PREFIXES.includes(p.toUpperCase())),
                     'Marklife', 'P12_'
                 ]
             };
@@ -347,17 +347,17 @@ export class MarklifeDriver implements IPrinterDriver {
         return Math.max(0, Math.round(mm * 8));
     }
 
-    /** True for models on the manufacturer's legacy "L11" command path. */
-    private usesLegacyL11(): boolean {
-        if (this.dialect === 'legacy') return true;
-        if (this.dialect === 'standard') return false;
+    /** True for models on the manufacturer's `10 FF` command path. */
+    private uses10FF(): boolean {
+        if (this.dialect === '0x10ff') return true;
+        if (this.dialect === '0x1f') return false;
 
         const names = [
             this.detectedModel,
             this.transport?.getDeviceName()
         ].filter(Boolean).map(n => n!.toUpperCase());
 
-        return LEGACY_L11_PREFIXES.some(prefix =>
+        return MARKLIFE_10FF_PREFIXES.some(prefix =>
             names.some(name => name.includes(prefix))
         );
     }
@@ -402,11 +402,11 @@ export class MarklifeDriver implements IPrinterDriver {
     public isCompatible(deviceName: string): boolean {
         const upper = deviceName.toUpperCase();
 
-        if (this.dialect === 'legacy') {
-            return LEGACY_L11_PREFIXES.some(prefix => upper.includes(prefix));
+        if (this.dialect === '0x10ff') {
+            return MARKLIFE_10FF_PREFIXES.some(prefix => upper.includes(prefix));
         }
 
-        const isLegacyModel = LEGACY_L11_PREFIXES.some(prefix => upper.includes(prefix));
+        const isLegacyModel = MARKLIFE_10FF_PREFIXES.some(prefix => upper.includes(prefix));
         if (isLegacyModel) {
             return false;
         }
@@ -504,9 +504,9 @@ export class MarklifeDriver implements IPrinterDriver {
             supportsSpeedMode: matched?.capabilities.supportsSpeedMode ?? true,
             colorSupport: { type: 'monochrome' },
             dpmm: 8,
-            driverName: this.usesLegacyL11()
-                ? "Marklife (Legacy L11)"
-                : "Marklife (Protocol 0x1F)",
+            driverName: this.uses10FF()
+                ? "Marklife (0x10FF)"
+                : "Marklife (0x1F)",
             // `?? {}` rather than a default offset: an unrecognised printer has
             // an unknown cutter distance, and inventing one puts the tear in
             // the wrong place on every label it prints.
@@ -514,7 +514,7 @@ export class MarklifeDriver implements IPrinterDriver {
             mediaDefaults: {
                 feedBeforeMinPx: 0,
                 feedBeforeMaxPx: 100, // or whatever makes sense, say 200
-                feedBeforeDefaultPx: this.usesLegacyL11() ? 40 : 0,
+                feedBeforeDefaultPx: this.uses10FF() ? 40 : 0,
                 feedAfterMinPx: 0,
                 feedAfterMaxPx: 200, // User can override up to a larger amount
                 feedAfterDefaultPx: 40
@@ -681,7 +681,7 @@ export class MarklifeDriver implements IPrinterDriver {
     public async printInit(options: UniversalPrintOptions): Promise<void> {
         this.lastOptions = options;
 
-        if (this.usesLegacyL11()) {
+        if (this.uses10FF()) {
             // The official app sends no 1F-family setup to these models. Density
             // travels on the module dialect, as one of three gears.
             if (options.density) {
@@ -783,7 +783,7 @@ export class MarklifeDriver implements IPrinterDriver {
             }
         }
 
-        if (this.usesLegacyL11()) {
+        if (this.uses10FF()) {
             // One buffer, framed exactly as the manufacturer's app frames it.
             const gap = this.lastOptions?.paper?.type === 'gap';
             const feedBeforeMm = this.lastOptions?.feedOverrides?.feedBeforeMm;
@@ -845,7 +845,7 @@ export class MarklifeDriver implements IPrinterDriver {
     public async printEnd(): Promise<void> {
         if (!this.transport || !this.writeCharacteristicId) throw new Error("Transport not bound");
 
-        if (this.usesLegacyL11()) {
+        if (this.uses10FF()) {
             // The job was closed inside printPage; feed the tape out so the
             // label can be torn off. The official app and the original BleWebler
             // both feed after the raster on this path; without it the L13 parks
@@ -873,7 +873,7 @@ export class MarklifeDriver implements IPrinterDriver {
             await this.sendCommand(Protocol.feedDots(feedAfterDots));
         }
 
-        // Protocol 0x1F Stop Sequence
+        // 0x1F stop sequence
         await this.sendCommand(Protocol.endJob());
 
         // Alternate stop sequence required by this printer family.

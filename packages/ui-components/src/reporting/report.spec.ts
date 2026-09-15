@@ -76,7 +76,7 @@ function baseAuto(): AutomaticDiagnostics {
         printCopies: 1,
         printSpeed: 0,
         printResult: 'failed',
-        diagnosticCandidates: [{ name: 'Marklife-Protocol-0x1F', matchedBy: 'both' }]
+        diagnosticCandidates: [{ name: 'Marklife-0x1F', matchedBy: 'both' }]
     };
 }
 
@@ -246,7 +246,7 @@ describe('buildReportMarkdown — safe inclusion', () => {
         expect(md).toContain('1 copy');
         expect(md).toContain('speed 0');
         expect(md).toContain('result failed');
-        expect(md).toContain('Marklife-Protocol-0x1F (both)');
+        expect(md).toContain('Marklife-0x1F (both)');
     });
 
     it('keeps in-app privacy guidance and maintainer boilerplate out of the shared issue', () => {

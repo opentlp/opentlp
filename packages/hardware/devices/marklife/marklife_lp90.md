@@ -4,8 +4,8 @@ brand: Marklife
 model: LP90
 
 protocol:
-  family: marklife-1f
-  packet_prefix: "1f"
+  family: marklife
+  packet_prefix: "10 ff"
 
 print:
   colour: monochrome

@@ -31,7 +31,7 @@ export const AUTO_APP_PROFILES: PrinterModelProfile[] = [
         replacesApps: ['Pocket Printer', 'Pocket Print'],
         kind: 'label',
         supportedTransports: ['bluetooth-le', 'bluetooth-classic', 'usb-serial'],
-        capabilities: { canvasHeightPx: 96, maxDensity: 15, supportsSpeedMode: false, colorSupport: { type: 'monochrome' }, dpmm: 8, driverName: 'Marklife-Legacy-L11' },
+        capabilities: { canvasHeightPx: 96, maxDensity: 15, supportsSpeedMode: false, colorSupport: { type: 'monochrome' }, dpmm: 8, driverName: 'Marklife-0x10FF' },
         notes: 'Connects using the Marklife legacy protocol (Karsten / L13 / DP-L13 / Silvercrest)'
     },
     {
@@ -42,7 +42,7 @@ export const AUTO_APP_PROFILES: PrinterModelProfile[] = [
         replacesApps: ['Marklife'],
         kind: 'label',
         supportedTransports: ['bluetooth-le', 'bluetooth-classic', 'usb-serial'],
-        capabilities: { canvasHeightPx: 96, maxDensity: 15, supportsSpeedMode: false, colorSupport: { type: 'monochrome' }, dpmm: 8, driverName: 'Marklife-Protocol-0x1F' },
+        capabilities: { canvasHeightPx: 96, maxDensity: 15, supportsSpeedMode: false, colorSupport: { type: 'monochrome' }, dpmm: 8, driverName: 'Marklife-0x1F' },
         notes: 'Auto-connects to any Marklife printer (P12, P11, P15, P50, etc.)'
     },
     {

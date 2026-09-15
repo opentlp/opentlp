@@ -4,7 +4,7 @@ brand: Marklife
 model: ET-Z0535
 
 protocol:
-  family: marklife-1f
+  family: marklife
   packet_prefix: "1f"
 
 print:

@@ -4,7 +4,7 @@ brand: Marklife
 model: P1S
 
 protocol:
-  family: marklife-1f
+  family: marklife
   packet_prefix: "1f"
 
 print:

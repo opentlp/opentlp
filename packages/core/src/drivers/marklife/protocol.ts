@@ -50,9 +50,9 @@ export const endJob = (): Uint8Array => cmd(0x1f, 0xc0, 0x01, 0x01);
  */
 export const endJobAlternate = (): Uint8Array => cmd(0x10, 0xff, 0xf1, 0x45);
 
-// ---- legacy "L11" job framing --------------------------------------------
+// ---- legacy `10 FF` job framing ------------------------------------------
 //
-// What the manufacturer's app sends to the models in LEGACY_L11_PREFIXES
+// What the manufacturer's app sends to the models in MARKLIFE_10FF_PREFIXES
 // (see the driver). Same 96-dot head as a P12, older command set.
 
 /** 15 zero bytes: wakes the module before a job. */
