@@ -58,6 +58,7 @@ export const CATPRINTER_MODELS: PrinterModelProfile[] = [
 ];
 
 export class CatPrinterDriver implements IPrinterDriver {
+    readonly id: string;
     readonly name: string;
     readonly driverType = 'hardware' as const;
     readonly app = 'Tiny Print';
@@ -82,6 +83,7 @@ export class CatPrinterDriver implements IPrinterDriver {
         const names = dialect === 'prefixed'
             ? [...PREFIXED_MODELS]
             : [...STANDARD_MODELS, ...STANDARD_REBRANDS];
+        this.id = dialect === 'prefixed' ? 'catprinter-tiny-prefixed' : 'catprinter-tiny-standard';
         this.name = dialect === 'prefixed'
             ? 'Catprinter (Tiny prefixed 0x12/0x51/0x78)'
             : 'Catprinter (Tiny 0x51/0x78)';
@@ -131,6 +133,7 @@ export class CatPrinterDriver implements IPrinterDriver {
             colorSupport: { type: 'monochrome' },
             physical: { supportedMediaWidthsMm: 58 },
             mediaDefaults: { feedAfterMinPx: 0, feedAfterMaxPx: 500, feedAfterDefaultPx: 25 },
+            driverId: this.id,
             driverName: this.name
         };
     }

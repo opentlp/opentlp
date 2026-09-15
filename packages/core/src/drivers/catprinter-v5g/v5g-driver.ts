@@ -41,6 +41,7 @@ export const CATPRINTER_V5G_MODELS: PrinterModelProfile[] = MODELS.map(model => 
 }));
 
 export class CatPrinterV5gDriver implements IPrinterDriver {
+    readonly id = 'catprinter-v5g';
     readonly name = 'Catprinter (V5G 0x51/0x78 dot raster)';
     readonly driverType = 'hardware' as const;
     readonly app = 'WalkPrint';
@@ -76,7 +77,7 @@ export class CatPrinterV5gDriver implements IPrinterDriver {
     }
 
     getCapabilities(): PrinterCapabilities {
-        return { ...capabilities(), driverName: this.name };
+        return { ...capabilities(), driverId: this.id, driverName: this.name };
     }
 
     async printInit(options: UniversalPrintOptions): Promise<void> {

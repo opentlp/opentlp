@@ -44,6 +44,7 @@ export const PHOMEMO_M110_MODELS: PrinterModelProfile[] = MODELS.map(model => ({
 }));
 
 export class PhomemoM110Driver implements IPrinterDriver {
+    readonly id = 'phomemo-m110';
     readonly name = 'Phomemo M110/M120/M220';
     readonly driverType = 'hardware' as const;
     readonly app = 'Phomemo';
@@ -90,7 +91,7 @@ export class PhomemoM110Driver implements IPrinterDriver {
     }
 
     getCapabilities(): PrinterCapabilities {
-        return { ...capabilities(this.matchModel()), driverName: this.name };
+        return { ...capabilities(this.matchModel()), driverId: this.id, driverName: this.name };
     }
 
     async printInit(options: UniversalPrintOptions): Promise<void> {
@@ -138,7 +139,7 @@ export class PhomemoM110Driver implements IPrinterDriver {
     }
 
     private async send(data: Uint8Array): Promise<void> {
-        await this.requireTransport().write(data, { serviceUUID: SERVICE, writeUUID: WRITE });
+        await this.requireTransport().write(data, { serviceUUID: SERVICE, writeUUID: WRITE});
         await new Promise(resolve => setTimeout(resolve, 30));
     }
 
@@ -147,8 +148,7 @@ export class PhomemoM110Driver implements IPrinterDriver {
         for (let offset = 0; offset < data.length; offset += 128) {
             await transport.write(data.slice(offset, offset + 128), {
                 serviceUUID: SERVICE,
-                writeUUID: WRITE
-            });
+                writeUUID: WRITE});
             if (offset + 128 < data.length) await new Promise(resolve => setTimeout(resolve, 20));
         }
     }

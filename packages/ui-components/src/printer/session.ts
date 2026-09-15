@@ -60,7 +60,9 @@ export interface PrinterSnapshot {
     transportKind?: string;
     /** Concrete transport implementation name exposed by the transport itself. */
     transportType?: string;
-    /** Exact registered driver identifier selected by PrintManager. */
+    /** Stable id of the registered driver selected by PrintManager. */
+    driverId?: string;
+    /** Display name of the registered driver selected by PrintManager. */
     driverName?: string;
     /** Protocol service UUIDs declared by the active driver. */
     serviceUuids?: readonly string[];
@@ -98,7 +100,7 @@ export class PrinterSession {
             this.recordDiagnostic('connection closed');
             this.update({
                 state: 'disconnected', deviceName: undefined,
-                capabilities: undefined, driverName: undefined,
+                capabilities: undefined, driverId: undefined, driverName: undefined,
                 modelId: undefined, modelProfile: undefined,
                 status: null, reports: [], serviceUuids: undefined
             });
@@ -139,7 +141,7 @@ export class PrinterSession {
     async connect(
         transport: IDeviceTransport,
         dummyProfile?: DummyProfile,
-        driverName?: string,
+        driverId?: string,
         modelId?: string,
         transportKind?: string
     ): Promise<void> {
@@ -148,11 +150,11 @@ export class PrinterSession {
         }
         this.pendingDummyProfile = dummyProfile;
         this.recordDiagnostic(
-            `connection requested: option=${transportKind ?? 'unspecified'}, transport=${transport.type}, driver=${driverName ?? 'automatic'}, model=${modelId ?? 'automatic'}`
+            `connection requested: option=${transportKind ?? 'unspecified'}, transport=${transport.type}, driver=${driverId ?? 'automatic'}, model=${modelId ?? 'automatic'}`
         );
         this.update({ state: 'connecting', transportKind, transportType: transport.type, lastError: undefined });
         try {
-            await this.pm.connect(transport, driverName, modelId);
+            await this.pm.connect(transport, driverId, modelId);
         } catch (err) {
             const e = toPrinterError(err, 'transport');
             // A cancelled chooser is a decision, not a fault. Recording it as
@@ -189,7 +191,7 @@ export class PrinterSession {
      */
     async connectWithTransport(
         transport: IDeviceTransport,
-        driverName?: string,
+        driverId?: string,
         modelId?: string,
         transportKind?: string
     ): Promise<void> {
@@ -197,11 +199,11 @@ export class PrinterSession {
             throw new PrinterError('not-connected', `Cannot connect while ${this.snapshot.state}.`);
         }
         this.recordDiagnostic(
-            `connection requested after probe: option=${transportKind ?? 'unspecified'}, transport=${transport.type}, driver=${driverName ?? 'automatic'}, model=${modelId ?? 'automatic'}`
+            `connection requested after probe: option=${transportKind ?? 'unspecified'}, transport=${transport.type}, driver=${driverId ?? 'automatic'}, model=${modelId ?? 'automatic'}`
         );
         this.update({ state: 'connecting', transportKind, transportType: transport.type, lastError: undefined });
         try {
-            await this.pm.connectWithTransport(transport, driverName, modelId);
+            await this.pm.connectWithTransport(transport, driverId, modelId);
         } catch (err) {
             const e = toPrinterError(err, 'transport');
             this.update({ state: 'disconnected', lastError: e });
@@ -271,6 +273,7 @@ export class PrinterSession {
         this.update({
             state: 'connected',
             deviceName: simulated ?? this.pm.getConnectedDeviceName(),
+            driverId: driver.id,
             driverName: driver.name,
             modelId: activeModel?.id,
             modelProfile: activeModel,

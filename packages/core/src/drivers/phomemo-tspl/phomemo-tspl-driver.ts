@@ -32,6 +32,7 @@ export const PHOMEMO_TSPL_MODELS: PrinterModelProfile[] = MODELS.map(model => ({
 }));
 
 export class PhomemoTsplDriver implements IPrinterDriver {
+    readonly id = 'phomemo-tspl';
     readonly name = 'Phomemo PM-241 (TSPL)';
     readonly driverType = 'hardware' as const;
     readonly app = 'Labelife';
@@ -62,7 +63,7 @@ export class PhomemoTsplDriver implements IPrinterDriver {
     }
 
     getCapabilities(): PrinterCapabilities {
-        return { ...capabilities(), driverName: this.name };
+        return { ...capabilities(), driverId: this.id, driverName: this.name };
     }
 
     async printInit(options: UniversalPrintOptions): Promise<void> {

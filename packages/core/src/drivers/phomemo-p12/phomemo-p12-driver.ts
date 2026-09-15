@@ -42,6 +42,7 @@ export const PHOMEMO_P12_MODELS: PrinterModelProfile[] = MODELS.map(model => ({
 }));
 
 export class PhomemoP12Driver implements IPrinterDriver {
+    readonly id = 'phomemo-p12';
     readonly name = 'Phomemo P12/A30';
     readonly driverType = 'hardware' as const;
     readonly app = 'Phomemo';
@@ -98,7 +99,7 @@ export class PhomemoP12Driver implements IPrinterDriver {
     }
 
     getCapabilities(): PrinterCapabilities {
-        return { ...capabilities(this.matchModel()), driverName: this.name };
+        return { ...capabilities(this.matchModel()), driverId: this.id, driverName: this.name };
     }
 
     async printInit(_options: UniversalPrintOptions): Promise<void> {
@@ -130,7 +131,7 @@ export class PhomemoP12Driver implements IPrinterDriver {
     }
 
     private async write(data: Uint8Array): Promise<void> {
-        await this.requireTransport().write(data, { serviceUUID: SERVICE, writeUUID: WRITE });
+        await this.requireTransport().write(data, { serviceUUID: SERVICE, writeUUID: WRITE});
     }
 
     private async sendAndAwaitReply(data: Uint8Array): Promise<void> {

@@ -31,6 +31,7 @@ import {
  * Owns its raster encoder so PeriPage can evolve independently of other brands.
  */
 export class PeriPageDriver implements IPrinterDriver {
+    readonly id = 'peripage';
     readonly name = 'PeriPage raw GS v 0';
     readonly driverType = 'hardware' as const;
     readonly app = 'PeriPage';
@@ -111,7 +112,7 @@ export class PeriPageDriver implements IPrinterDriver {
     }
 
     getCapabilities(): PrinterCapabilities {
-        return { ...this.activeProfile.capabilities, driverName: this.name };
+        return { ...this.activeProfile.capabilities, driverId: this.id, driverName: this.name };
     }
 
     /**

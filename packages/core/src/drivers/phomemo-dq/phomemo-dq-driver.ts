@@ -51,6 +51,7 @@ function capabilities(headDots: number, media: number | { min: number; max: numb
 }
 
 export class PhomemoDqDriver implements IPrinterDriver {
+    readonly id = 'phomemo-dq';
     readonly name = 'Phomemo D/Q (rotated ESC/POS)';
     readonly driverType = 'hardware' as const;
     readonly app = 'Phomemo';
@@ -97,7 +98,7 @@ export class PhomemoDqDriver implements IPrinterDriver {
 
     getCapabilities(): PrinterCapabilities {
         const model = this.matchModel();
-        return { ...capabilities(model.headDots, model.media), driverName: this.name };
+        return { ...capabilities(model.headDots, model.media), driverId: this.id, driverName: this.name };
     }
 
     async printInit(options: UniversalPrintOptions): Promise<void> {
@@ -128,7 +129,7 @@ export class PhomemoDqDriver implements IPrinterDriver {
     }
 
     private async send(data: Uint8Array): Promise<void> {
-        await this.requireTransport().write(data, { serviceUUID: SERVICE, writeUUID: WRITE });
+        await this.requireTransport().write(data, { serviceUUID: SERVICE, writeUUID: WRITE});
         await new Promise(resolve => setTimeout(resolve, 30));
     }
 
@@ -137,8 +138,7 @@ export class PhomemoDqDriver implements IPrinterDriver {
         for (let offset = 0; offset < data.length; offset += 128) {
             await transport.write(data.slice(offset, offset + 128), {
                 serviceUUID: SERVICE,
-                writeUUID: WRITE
-            });
+                writeUUID: WRITE});
             if (offset + 128 < data.length) await new Promise(resolve => setTimeout(resolve, 20));
         }
     }

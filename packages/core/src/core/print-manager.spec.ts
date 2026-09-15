@@ -16,7 +16,8 @@ class MockDriver implements IPrinterDriver {
     constructor(
         public mockNameMatch: string,
         service = "mock-service",
-        public name = "MockDriver"
+        public name = "MockDriver",
+        public id = name
     ) {
         this.connectionRequirements = { services: [service] };
     }
@@ -300,7 +301,7 @@ describe('PrintManager', () => {
         const candidateNames = diagnostic.candidates.map(c => c.driverName);
         expect(candidateNames).toContain('Marklife-0x1F');
         expect(candidateNames).toContain('Phomemo P12/A30');
-        expect(diagnostic.suggestedDriver).toBe('Marklife-0x1F');
+        expect(diagnostic.suggestedDriverId).toBe('marklife-0x1f');
     });
 
     it('populates app, kind, and supportedTransports on available profiles', () => {

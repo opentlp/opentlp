@@ -49,6 +49,7 @@ export const CATPRINTER_MXW01_MODELS: PrinterModelProfile[] = MODELS.map(model =
 }));
 
 export class CatPrinterMxw01Driver implements IPrinterDriver {
+    readonly id = 'catprinter-mxw01';
     readonly name = 'Catprinter (V5X/MXW01 bulk raster)';
     readonly driverType = 'hardware' as const;
     readonly app = 'WalkPrint';
@@ -111,7 +112,7 @@ export class CatPrinterMxw01Driver implements IPrinterDriver {
     }
 
     getCapabilities(): PrinterCapabilities {
-        return { ...capabilities(), driverName: this.name };
+        return { ...capabilities(), driverId: this.id, driverName: this.name };
     }
 
     async printInit(options: UniversalPrintOptions): Promise<void> {

@@ -31,6 +31,7 @@ export const CATPRINTER_V5C_MODELS: PrinterModelProfile[] = MODELS.map(model => 
 }));
 
 export class CatPrinterV5cDriver implements IPrinterDriver {
+    readonly id = 'catprinter-v5c';
     readonly name = 'Catprinter (V5C 0x56/0x88 row raster)';
     readonly driverType = 'hardware' as const;
     readonly app = 'Luck Jingle';
@@ -74,7 +75,7 @@ export class CatPrinterV5cDriver implements IPrinterDriver {
     }
 
     getCapabilities(): PrinterCapabilities {
-        return { ...capabilities(), driverName: this.name };
+        return { ...capabilities(), driverId: this.id, driverName: this.name };
     }
 
     async printInit(options: UniversalPrintOptions): Promise<void> {
@@ -102,8 +103,7 @@ export class CatPrinterV5cDriver implements IPrinterDriver {
         await this.waitUntilResumed();
         await this.requireTransport().write(packet, {
             serviceUUID: SERVICE,
-            writeUUID: WRITE
-        });
+            writeUUID: WRITE});
         await new Promise(resolve => setTimeout(resolve, 4));
     }
 

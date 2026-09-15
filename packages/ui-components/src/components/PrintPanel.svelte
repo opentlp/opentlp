@@ -182,6 +182,7 @@
         const dimensions = printEvidenceDimensions({
             hardwareId: profile?.tohId ?? profile?.id,
             profileId: profile?.id,
+            driverId: snap.driverId,
             driverName: snap.driverName,
             transportKind: snap.transportKind,
             transportType: snap.transportType,

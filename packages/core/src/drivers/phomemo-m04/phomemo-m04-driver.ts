@@ -44,6 +44,7 @@ export const PHOMEMO_M04_MODELS: PrinterModelProfile[] = MODELS.map(model => ({
 }));
 
 export class PhomemoM04Driver implements IPrinterDriver {
+    readonly id = 'phomemo-m04';
     readonly name = 'Phomemo M04S/M04AS';
     readonly driverType = 'hardware' as const;
     readonly app = 'Phomemo';
@@ -84,7 +85,7 @@ export class PhomemoM04Driver implements IPrinterDriver {
     }
 
     getCapabilities(): PrinterCapabilities {
-        return { ...capabilities(this.matchModel()), driverName: this.name };
+        return { ...capabilities(this.matchModel()), driverId: this.id, driverName: this.name };
     }
 
     async printInit(options: UniversalPrintOptions): Promise<void> {
@@ -133,7 +134,7 @@ export class PhomemoM04Driver implements IPrinterDriver {
     }
 
     private async send(data: Uint8Array, delayMs: number): Promise<void> {
-        await this.requireTransport().write(data, { serviceUUID: SERVICE, writeUUID: WRITE });
+        await this.requireTransport().write(data, { serviceUUID: SERVICE, writeUUID: WRITE});
         if (delayMs > 0) await new Promise(resolve => setTimeout(resolve, delayMs));
     }
 
@@ -142,8 +143,7 @@ export class PhomemoM04Driver implements IPrinterDriver {
         for (let offset = 0; offset < data.length; offset += 256) {
             await transport.write(data.slice(offset, offset + 256), {
                 serviceUUID: SERVICE,
-                writeUUID: WRITE
-            });
+                writeUUID: WRITE});
             if (offset + 256 < data.length) await new Promise(resolve => setTimeout(resolve, 20));
         }
     }
