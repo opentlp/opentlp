@@ -47,6 +47,7 @@ export const PHOMEMO_M_SERIES_MODELS: PrinterModelProfile[] = MODELS.map(model =
 }));
 
 export class PhomemoMSeriesDriver implements IPrinterDriver {
+    readonly id = 'phomemo-m-series';
     readonly name = 'Phomemo general M-series';
     readonly driverType = 'hardware' as const;
     readonly app = 'Phomemo';
@@ -92,7 +93,7 @@ export class PhomemoMSeriesDriver implements IPrinterDriver {
     }
 
     getCapabilities(): PrinterCapabilities {
-        return { ...capabilities(this.matchModel()), driverName: this.name };
+        return { ...capabilities(this.matchModel()), driverId: this.id, driverName: this.name };
     }
 
     async printInit(options: UniversalPrintOptions): Promise<void> {

@@ -44,6 +44,7 @@ export const PHOMEMO_M04_MODELS: PrinterModelProfile[] = MODELS.map(model => ({
 }));
 
 export class PhomemoM04Driver implements IPrinterDriver {
+    readonly id = 'phomemo-m04';
     readonly name = 'Phomemo M04S/M04AS';
     readonly driverType = 'hardware' as const;
     readonly app = 'Phomemo';
@@ -84,7 +85,7 @@ export class PhomemoM04Driver implements IPrinterDriver {
     }
 
     getCapabilities(): PrinterCapabilities {
-        return { ...capabilities(this.matchModel()), driverName: this.name };
+        return { ...capabilities(this.matchModel()), driverId: this.id, driverName: this.name };
     }
 
     async printInit(options: UniversalPrintOptions): Promise<void> {

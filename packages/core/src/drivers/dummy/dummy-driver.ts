@@ -12,6 +12,7 @@ import { PrinterError } from "../printer-error";
  * Very useful for debugging designer alignment, UI issues, and canvas mapping.
  */
 export class DummyDriver implements IPrinterDriver {
+    public readonly id = 'dummy';
     public readonly name = "Virtual-Dummy-Printer";
     public readonly driverType = 'virtual' as const;
     public readonly replacesApps = [] as const;
@@ -131,6 +132,7 @@ export class DummyDriver implements IPrinterDriver {
             colorSupport: this.colorSupport,
             supportsSpeedMode: false,
             dpmm: this.dpmm,
+            driverId: this.id,
             driverName: this.name,
             physical: {
 

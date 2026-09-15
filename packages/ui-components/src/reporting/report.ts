@@ -50,7 +50,9 @@ export type PrintResult = 'sent' | 'failed';
 export interface PrintEvidenceDimensions {
     hardwareId: string;
     profileId: string;
-    driverName: string;
+    driverId: string;
+    /** Display name, optional; {@link driverId} is the stable key. */
+    driverName?: string;
     transportKind: string;
     transportType: string;
     runtime: string;
@@ -73,7 +75,7 @@ export interface PrintEvidenceIndex {
 }
 
 export type PrintEvidenceSource = Pick<AutomaticDiagnostics,
-    'hardwareId' | 'profileId' | 'driverName' | 'transportKind' |
+    'hardwareId' | 'profileId' | 'driverId' | 'driverName' | 'transportKind' |
     'transportType' | 'runtime' | 'osFamily' | 'paperType' | 'dpmm' |
     'mediaWidthMm'>;
 
@@ -103,12 +105,15 @@ export interface DiagnosticReportContext {
     transportKind?: string;
     /** Concrete transport implementation name, e.g. Web Bluetooth. */
     transportType?: string;
-    /** Driver selected or attempted for the operation. */
+    /** Stable id of the driver selected or attempted for the operation. */
+    driverId?: string;
+    /** Display name of the driver selected or attempted for the operation. */
     driverName?: string;
     /** Trigger-specific description shown in the editable form. */
     whatHappened?: string;
     serviceUuids: readonly string[];
     candidateDrivers: readonly {
+        driverId: string;
         name: string;
         matchedBy: 'name' | 'service' | 'both' | 'prefix-hint';
     }[];
@@ -159,7 +164,9 @@ export interface AutomaticDiagnostics {
     transportKind?: string;
     /** Concrete transport implementation reported by IDeviceTransport.type. */
     transportType?: string;
-    /** Driver class name, e.g. "MarklifeProtocol". */
+    /** Stable driver id, e.g. "marklife-0x1f". */
+    driverId?: string;
+    /** Driver display name. */
     driverName?: string;
     maxDensity?: number;
     canvasHeightPx?: number;
@@ -253,16 +260,18 @@ function safeServiceUuids(values: readonly string[] | undefined): string[] {
 export function printEvidenceDimensions(auto: PrintEvidenceSource): PrintEvidenceDimensions | undefined {
     const hardwareId = sanitizeOptional(auto.hardwareId, MAX_SHORT);
     const profileId = sanitizeOptional(auto.profileId, MAX_SHORT);
+    const driverId = sanitizeOptional(auto.driverId, MAX_SHORT);
     const driverName = sanitizeOptional(auto.driverName, MAX_SHORT);
     const transportKind = sanitizeOptional(auto.transportKind, MAX_SHORT);
     const transportType = sanitizeOptional(auto.transportType, MAX_SHORT);
     const runtime = sanitizeOptional(auto.runtime, MAX_SHORT);
     const osFamily = sanitizeOptional(auto.osFamily, MAX_SHORT);
-    if (!hardwareId || !profileId || !driverName || !transportKind || !transportType || !runtime || !osFamily) return undefined;
+    if (!hardwareId || !profileId || !driverId || !transportKind || !transportType || !runtime || !osFamily) return undefined;
     if (!auto.paperType || !Number.isFinite(auto.dpmm) || !Number.isFinite(auto.mediaWidthMm)) return undefined;
     return {
         hardwareId,
         profileId,
+        driverId,
         driverName,
         transportKind,
         transportType,

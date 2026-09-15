@@ -36,13 +36,16 @@ export interface PrintManagerEvents {
 export type DiagnosticLogger = (level: 'info' | 'warn', message: string) => void;
 
 export interface PrinterDriverChoice {
-    /** Stable selection key accepted by connect/connectWithTransport. */
+    /** Stable driver id accepted by connect/connectWithTransport. */
+    driverId: string;
+    /** Human-readable name for display. */
     name: string;
     /** Number of model profiles explicitly associated with the driver. */
     modelCount: number;
 }
 
 export interface CandidateDriverInfo {
+    driverId: string;
     driverName: string;
     matchedBy: 'name' | 'service' | 'both' | 'prefix-hint';
     reasons: string[];
@@ -54,7 +57,7 @@ export interface DeviceDiagnostic {
     transportType: string;
     discoveredServices: string[];
     candidates: CandidateDriverInfo[];
-    suggestedDriver?: string;
+    suggestedDriverId?: string;
 }
 
 /**
@@ -106,7 +109,7 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
     getAvailableDriverChoices(): PrinterDriverChoice[] {
         return this.registeredDrivers
             .filter(driver => driver.driverType === 'hardware')
-            .map(driver => ({ name: driver.name, modelCount: driver.supportedModels?.length ?? 0 }));
+            .map(driver => ({ driverId: driver.id, name: driver.name, modelCount: driver.supportedModels?.length ?? 0 }));
     }
 
     /**
@@ -264,37 +267,37 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
         if (idLower.startsWith('auto:')) {
             const key = idLower.slice(5);
             if (key === 'pocket_print_pocket' || key === 'pocket_printer_pocket') {
-                return this.registeredDrivers.find(d => d.name.includes('Catprinter (Tiny'));
+                return this.registeredDrivers.find(d => d.id === 'catprinter-tiny-standard');
             }
             if (key === 'pocket_print_label' || key === 'pocket_printer_label') {
-                return this.registeredDrivers.find(d => d.name.includes('0x10FF') || (d.replacesApps?.includes('Pocket Printer') && d.defaultKind === 'label'));
+                return this.registeredDrivers.find(d => d.id === 'marklife-0x10ff');
             }
             if (key === 'tiny_print') {
-                return this.registeredDrivers.find(d => d.name.includes('Catprinter (Tiny'));
+                return this.registeredDrivers.find(d => d.id === 'catprinter-tiny-standard');
             }
             if (key === 'marklife') {
-                return this.registeredDrivers.find(d => d.name.includes('Marklife-0x1F'));
+                return this.registeredDrivers.find(d => d.id === 'marklife-0x1f');
             }
             if (key === 'niimbot') {
-                return this.registeredDrivers.find(d => d.name.includes('Niimbot'));
+                return this.registeredDrivers.find(d => d.id === 'niimbot');
             }
             if (key === 'walkprint') {
-                return this.registeredDrivers.find(d => d.name.includes('MXW01') || d.app === 'WalkPrint');
+                return this.registeredDrivers.find(d => d.id === 'catprinter-mxw01');
             }
             if (key === 'fun_print') {
-                return this.registeredDrivers.find(d => d.name.includes('Funny') || d.app === 'Fun Print');
+                return this.registeredDrivers.find(d => d.id === 'catprinter-funny-lx');
             }
             if (key === 'phomemo_pocket') {
-                return this.registeredDrivers.find(d => d.name.includes('Phomemo M02'));
+                return this.registeredDrivers.find(d => d.id === 'phomemo-m02');
             }
             if (key === 'phomemo_label' || key === 'print_master') {
-                return this.registeredDrivers.find(d => d.name.includes('Phomemo M110'));
+                return this.registeredDrivers.find(d => d.id === 'phomemo-m110');
             }
             if (key === 'labelife') {
-                return this.registeredDrivers.find(d => d.name.includes('PM-241') || d.app === 'Labelife');
+                return this.registeredDrivers.find(d => d.id === 'phomemo-tspl');
             }
             if (key === 'peripage') {
-                return this.registeredDrivers.find(d => d.name.includes('PeriPage'));
+                return this.registeredDrivers.find(d => d.id === 'peripage');
             }
             const cleanApp = key.replace(/_/g, ' ');
             const byApp = this.getDriverForApp(cleanApp);
@@ -325,7 +328,7 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
      * The Manager aggregates connection requirements from all registered drivers
      * so that any supported printer can be discovered.
      */
-    async connect(transport: IDeviceTransport, preferredDriverName?: string, modelId?: string): Promise<void> {
+    async connect(transport: IDeviceTransport, preferredDriverId?: string, modelId?: string): Promise<void> {
         if (this.activeTransport && this.activeTransport.isConnected()) {
             await this.disconnect();
         }
@@ -340,11 +343,11 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
         // and name prefixes for discovery hints
         const allServices = new Set<string>();
         const allPrefixes = new Set<string>();
-        const preferredDriver = preferredDriverName
-            ? this.registeredDrivers.find(driver => driver.name === preferredDriverName)
+        const preferredDriver = preferredDriverId
+            ? this.registeredDrivers.find(driver => driver.id === preferredDriverId)
             : resolvedModelDriver;
-        if (preferredDriverName && !preferredDriver) {
-            throw new Error(`Unknown printer driver: ${preferredDriverName}`);
+        if (preferredDriverId && !preferredDriver) {
+            throw new Error(`Unknown printer driver: ${preferredDriverId}`);
         }
         const discoveryDrivers = preferredDriver ? [preferredDriver] : this.registeredDrivers;
         for (const driver of discoveryDrivers) {
@@ -377,7 +380,7 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
             await this.activeTransport.connect(
                 this.activeTransport.filterType === 'usb' ? undefined : filters
             );
-            await this.bindDriver(preferredDriverName ?? preferredDriver?.name, modelId);
+            await this.bindDriver(preferredDriverId ?? preferredDriver?.id, modelId);
         } catch (error: any) {
             this.activeTransport = undefined;
             this.emit("error", error);
@@ -392,7 +395,7 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
      * Use this when you have manually called `transport.connectByDeviceId()` or
      * otherwise established the transport connection yourself.
      */
-    async connectWithTransport(transport: IDeviceTransport, preferredDriverName?: string, modelId?: string): Promise<void> {
+    async connectWithTransport(transport: IDeviceTransport, preferredDriverId?: string, modelId?: string): Promise<void> {
         if (!transport.isConnected()) {
             throw new Error("connectWithTransport() requires an already-connected transport.");
         }
@@ -406,12 +409,12 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
         const resolvedModelDriver = (modelId && modelId !== 'none' && modelId !== 'unknown')
             ? this.getDriverForModel(modelId)
             : undefined;
-        const preferredDriver = preferredDriverName
-            ? this.registeredDrivers.find(driver => driver.name === preferredDriverName)
+        const preferredDriver = preferredDriverId
+            ? this.registeredDrivers.find(driver => driver.id === preferredDriverId)
             : resolvedModelDriver;
 
         try {
-            await this.bindDriver(preferredDriverName ?? preferredDriver?.name, modelId);
+            await this.bindDriver(preferredDriverId ?? preferredDriver?.id, modelId);
         } catch (error: any) {
             this.activeTransport = undefined;
             this.emit("error", error);
@@ -420,7 +423,7 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
     }
 
     /** Internal: wire up event listeners and match a driver for the active transport. */
-    private async bindDriver(preferredDriverName?: string, modelId?: string): Promise<void> {
+    private async bindDriver(preferredDriverId?: string, modelId?: string): Promise<void> {
         if (!this.activeTransport) throw new Error("No active transport.");
 
         this.activeTransport.on("disconnected", this.handleDisconnect);
@@ -429,9 +432,9 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
         const deviceName = this.activeTransport.getDeviceName();
         this.logger('info', `[PrintManager] Device connected. Name: ${deviceName || 'Unknown'}`);
 
-        if (preferredDriverName) {
-            const preferred = this.registeredDrivers.find(driver => driver.name === preferredDriverName);
-            if (!preferred) throw new Error(`Unknown printer driver: ${preferredDriverName}`);
+        if (preferredDriverId) {
+            const preferred = this.registeredDrivers.find(driver => driver.id === preferredDriverId);
+            if (!preferred) throw new Error(`Unknown printer driver: ${preferredDriverId}`);
             await this.bindMatchedDriver(preferred, modelId);
             return;
         }
@@ -663,6 +666,7 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
                     ? 'service'
                     : 'prefix-hint';
                 candidates.push({
+                    driverId: driver.id,
                     driverName: driver.name,
                     matchedBy,
                     reasons,
@@ -679,14 +683,14 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
         };
         candidates.sort((a, b) => rank(b) - rank(a));
 
-        const suggestedDriver = candidates.length > 0 ? candidates[0].driverName : undefined;
+        const suggestedDriverId = candidates.length > 0 ? candidates[0].driverId : undefined;
 
         return {
             deviceName,
             transportType,
             discoveredServices,
             candidates,
-            suggestedDriver
+            suggestedDriverId
         };
     }
 

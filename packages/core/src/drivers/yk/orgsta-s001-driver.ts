@@ -25,6 +25,7 @@ export const ORGSTA_S001_MODELS: PrinterModelProfile[] = [{
 }];
 
 export class OrgstaS001Driver implements IPrinterDriver {
+    readonly id = 'orgsta-s001';
     readonly name = 'Orgsta S001 (YK Astra P1)';
     readonly driverType = 'hardware' as const;
     readonly app = 'Orgsta';
@@ -58,7 +59,7 @@ export class OrgstaS001Driver implements IPrinterDriver {
     }
 
     getCapabilities(): PrinterCapabilities {
-        return { ...capabilities(), driverName: this.name };
+        return { ...capabilities(), driverId: this.id, driverName: this.name };
     }
 
     async printInit(options: UniversalPrintOptions): Promise<void> {

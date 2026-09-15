@@ -42,6 +42,7 @@ export const FUNNY_LX_MODELS: PrinterModelProfile[] = [{
 }];
 
 export class FunnyLxDriver implements IPrinterDriver {
+    readonly id = 'catprinter-funny-lx';
     readonly name = 'Funny Print (LX-D / BH-01 direct raster)';
     readonly driverType = 'hardware' as const;
     readonly app = 'Fun Print';
@@ -88,7 +89,7 @@ export class FunnyLxDriver implements IPrinterDriver {
     }
 
     getCapabilities(): PrinterCapabilities {
-        return { ...capabilities(), driverName: this.name };
+        return { ...capabilities(), driverId: this.id, driverName: this.name };
     }
 
     async printInit(options: UniversalPrintOptions): Promise<void> {

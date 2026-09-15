@@ -5,7 +5,7 @@ const PAPER_TYPES = new Set([
     'pvc', 'black-mark', 'heat-shrink'
 ]);
 const REQUIRED_STRINGS = [
-    'hardwareId', 'profileId', 'driverName', 'transportKind',
+    'hardwareId', 'profileId', 'driverId', 'transportKind',
     'transportType', 'runtime', 'osFamily'
 ];
 
@@ -60,6 +60,7 @@ function canonicalDimensions(value) {
     return {
         hardwareId: value.hardwareId,
         profileId: value.profileId,
+        driverId: value.driverId,
         driverName: value.driverName,
         transportKind: value.transportKind,
         transportType: value.transportType,

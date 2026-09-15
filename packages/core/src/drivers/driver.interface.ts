@@ -158,7 +158,9 @@ export interface PrinterCapabilities {
     };
     /** Device resolution in dots per millimeter (dpmm). E.g. 203 DPI = 8 dpmm, 300 DPI = 12 dpmm. */
     dpmm: number;
-    /** Name of the driver handling this printer */
+    /** Stable id of the driver handling this printer (e.g. "marklife-0x1f"). */
+    driverId?: string;
+    /** Display name of the driver handling this printer. */
     driverName?: string;
     /** Physical geometry of the printer mechanism */
     physical?: {
@@ -236,7 +238,16 @@ export interface UniversalImageData {
  */
 export interface IPrinterDriver {
     /**
-     * Driver identifier (e.g., "Marklife-0x1F", "Niimbot-B21")
+     * Stable, machine-readable driver identifier (e.g. "marklife-0x1f",
+     * "catprinter-tiny-standard", "niimbot"). Consumers key off this rather
+     * than {@link name}, which is a human-readable display label that may change.
+     */
+    readonly id: string;
+
+    /**
+     * Human-readable driver name for display (e.g., "Marklife-0x1F",
+     * "Niimbot Generic Printer"). Not a stable identifier; use {@link id} for
+     * matching and selection.
      */
     readonly name: string;
 

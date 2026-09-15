@@ -126,6 +126,7 @@
             profileModel: kind === 'missing-printer' ? undefined : selectedProfile?.model,
             transportKind: diagnosticContext?.transportKind ?? snap.transportKind,
             transportType: diagnosticContext?.transportType ?? snap.transportType,
+            driverId: diagnosticContext?.driverId ?? snap.driverId,
             driverName: diagnosticContext?.driverName ?? snap.driverName,
             maxDensity: caps?.maxDensity,
             canvasHeightPx: caps?.canvasHeightPx,

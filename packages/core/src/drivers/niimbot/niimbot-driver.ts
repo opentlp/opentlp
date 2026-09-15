@@ -139,6 +139,7 @@ class UniversalTransportClient extends NiimbotAbstractClient {
 
 
 export class NiimbotDriver implements IPrinterDriver {
+    public readonly id = 'niimbot';
     public readonly name = "Niimbot Generic Printer";
     public readonly driverType = 'hardware' as const;
     public readonly app = 'NIIMBOT';
@@ -172,7 +173,7 @@ export class NiimbotDriver implements IPrinterDriver {
             model,
             family,
             ...baseSpec,
-            capabilities: { ...baseSpec.capabilities, driverName: this.name }
+            capabilities: { ...baseSpec.capabilities, driverId: this.id, driverName: this.name }
         }));
     }
 
@@ -229,6 +230,7 @@ export class NiimbotDriver implements IPrinterDriver {
             supportsSpeedMode: false,
             colorSupport: { type: 'monochrome' },
             dpmm: meta?.dpi ? meta.dpi / 25.4 : profile?.capabilities.dpmm ?? 8,
+            driverId: this.id,
             driverName: this.name
         };
     }

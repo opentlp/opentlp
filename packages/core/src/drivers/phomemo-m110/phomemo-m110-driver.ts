@@ -44,6 +44,7 @@ export const PHOMEMO_M110_MODELS: PrinterModelProfile[] = MODELS.map(model => ({
 }));
 
 export class PhomemoM110Driver implements IPrinterDriver {
+    readonly id = 'phomemo-m110';
     readonly name = 'Phomemo M110/M120/M220';
     readonly driverType = 'hardware' as const;
     readonly app = 'Phomemo';
@@ -90,7 +91,7 @@ export class PhomemoM110Driver implements IPrinterDriver {
     }
 
     getCapabilities(): PrinterCapabilities {
-        return { ...capabilities(this.matchModel()), driverName: this.name };
+        return { ...capabilities(this.matchModel()), driverId: this.id, driverName: this.name };
     }
 
     async printInit(options: UniversalPrintOptions): Promise<void> {

@@ -5,6 +5,7 @@ import { aggregatePrintEvidence, parsePrintEvidenceIssue } from './lib/print-evi
 const dimensions = {
     hardwareId: 'marklife-p12',
     profileId: 'marklife_p12',
+    driverId: 'marklife-0x1f',
     driverName: 'Marklife (Protocol 0x1F)',
     transportKind: 'web-bluetooth',
     transportType: 'Web Bluetooth',

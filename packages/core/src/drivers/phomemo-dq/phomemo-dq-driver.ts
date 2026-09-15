@@ -51,6 +51,7 @@ function capabilities(headDots: number, media: number | { min: number; max: numb
 }
 
 export class PhomemoDqDriver implements IPrinterDriver {
+    readonly id = 'phomemo-dq';
     readonly name = 'Phomemo D/Q (rotated ESC/POS)';
     readonly driverType = 'hardware' as const;
     readonly app = 'Phomemo';
@@ -97,7 +98,7 @@ export class PhomemoDqDriver implements IPrinterDriver {
 
     getCapabilities(): PrinterCapabilities {
         const model = this.matchModel();
-        return { ...capabilities(model.headDots, model.media), driverName: this.name };
+        return { ...capabilities(model.headDots, model.media), driverId: this.id, driverName: this.name };
     }
 
     async printInit(options: UniversalPrintOptions): Promise<void> {

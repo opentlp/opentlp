@@ -121,7 +121,7 @@
         diagnosticResult = null;
     }
 
-    async function tryDriverWithDiagnostic(driverName: string): Promise<void> {
+    async function tryDriverWithDiagnostic(driverId: string): Promise<void> {
         if (!diagnosticTransport) return;
         connectError = '';
         busyId = 'diagnostic-connect';
@@ -131,7 +131,7 @@
             diagnosticTransport = null;
             await session.connectWithTransport(
                 transport,
-                driverName,
+                driverId,
                 selectedPrinterModel || undefined,
                 lastTransportId ?? transport.type
             );
@@ -180,10 +180,12 @@
             hardwareVersion: snap.status?.identity.hardwareVersion,
             transportKind: lastTransportId ?? snap.transportKind,
             transportType: result?.transportType ?? lastTransportType ?? snap.transportType,
-            driverName: result?.suggestedDriver ?? (driverOverride || snap.driverName),
+            driverId: result?.suggestedDriverId ?? (driverOverride || undefined) ?? snap.driverId,
+            driverName: result?.candidates.find(c => c.driverId === result.suggestedDriverId)?.driverName ?? (driverChoices.find(d => d.driverId === driverOverride)?.name) ?? snap.driverName,
             whatHappened,
             serviceUuids: result?.discoveredServices ?? snap.serviceUuids ?? [],
             candidateDrivers: result?.candidates.map(candidate => ({
+                driverId: candidate.driverId,
                 name: candidate.driverName,
                 matchedBy: candidate.matchedBy
             })) ?? []
@@ -381,7 +383,7 @@
                                     <button
                                         type="button"
                                         class="primary try-driver-btn"
-                                        onclick={() => tryDriverWithDiagnostic(candidate.driverName)}
+                                        onclick={() => tryDriverWithDiagnostic(candidate.driverId)}
                                         disabled={busyId !== null}
                                     >
                                         {busyId === 'diagnostic-connect' ? 'Connecting…' : `Try ${candidate.driverName}`}
@@ -414,14 +416,14 @@
         {/if}
 
         <details class="advanced-protocol">
-            <summary>Advanced: protocol override ({driverOverride || 'Automatic'})</summary>
+            <summary>Advanced: protocol override ({driverChoices.find(d => d.driverId === driverOverride)?.name || 'Automatic'})</summary>
             <div class="protocol-content">
                 <label>
                     <span>Force driver family:</span>
                     <select bind:value={driverOverride} disabled={snap.state === 'connecting' || isDiagnosing}>
                         <option value="">Automatic (Auto-detect by device name)</option>
-                        {#each driverChoices as driver (driver.name)}
-                            <option value={driver.name}>{driver.name}</option>
+                        {#each driverChoices as driver (driver.driverId)}
+                            <option value={driver.driverId}>{driver.name}</option>
                         {/each}
                     </select>
                 </label>

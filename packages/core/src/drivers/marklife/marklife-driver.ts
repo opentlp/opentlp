@@ -260,6 +260,7 @@ export type MarklifeDialect = 'auto' | '0x1f' | '0x10ff';
  */
 export class MarklifeDriver implements IPrinterDriver {
     public readonly name: string;
+    public readonly id: string;
     public readonly driverType = 'hardware' as const;
 
     // The Universal Print Manager will request these services
@@ -301,6 +302,7 @@ export class MarklifeDriver implements IPrinterDriver {
 
     constructor(public readonly dialect: MarklifeDialect = 'auto') {
         this.name = dialect === '0x10ff' ? "Marklife-0x10FF" : "Marklife-0x1F";
+        this.id = dialect === '0x10ff' ? 'marklife-0x10ff' : 'marklife-0x1f';
         this.app = dialect === '0x10ff' ? 'Pocket Printer' : 'Marklife';
         this.replacesApps = dialect === '0x10ff' ? ['Pocket Printer', 'Pocket Print'] : ['Marklife'];
         const isLegacy = (m: PrinterModelProfile) =>
@@ -504,6 +506,7 @@ export class MarklifeDriver implements IPrinterDriver {
             supportsSpeedMode: matched?.capabilities.supportsSpeedMode ?? true,
             colorSupport: { type: 'monochrome' },
             dpmm: 8,
+            driverId: this.id,
             driverName: this.uses10FF()
                 ? "Marklife (0x10FF)"
                 : "Marklife (0x1F)",

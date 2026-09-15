@@ -58,6 +58,7 @@ function baseAuto(): AutomaticDiagnostics {
         profileModel: 'P12',
         transportKind: 'web-bluetooth',
         transportType: 'Web Bluetooth',
+        driverId: 'marklife-0x1f',
         driverName: 'MarklifeProtocol',
         maxDensity: 15,
         canvasHeightPx: 96,
@@ -76,7 +77,7 @@ function baseAuto(): AutomaticDiagnostics {
         printCopies: 1,
         printSpeed: 0,
         printResult: 'failed',
-        diagnosticCandidates: [{ name: 'Marklife-0x1F', matchedBy: 'both' }]
+        diagnosticCandidates: [{ driverId: 'marklife-0x1f', name: 'Marklife-0x1F', matchedBy: 'both' }]
     };
 }
 
@@ -464,6 +465,7 @@ describe('successful-print evidence', () => {
         const success = buildReportMarkdown('print-success', baseHuman(), { ...baseAuto(), printResult: 'sent' });
         expect(success).toContain('<!-- opentlp-print-evidence:v1 {');
         expect(success).toContain('"hardwareId":"marklife-p12"');
+        expect(success).toContain('"driverId":"marklife-0x1f"');
         expect(buildReportMarkdown('print-problem', baseHuman(), baseAuto())).not.toContain('opentlp-print-evidence');
     });
 
@@ -474,6 +476,7 @@ describe('successful-print evidence', () => {
             hardwareId: undefined
         });
         expect(success).not.toContain('opentlp-print-evidence');
+        expect(printEvidenceDimensions({ ...baseAuto(), driverId: undefined })).toBeUndefined();
         expect(printEvidenceDimensions({ ...baseAuto(), dpmm: Number.NaN })).toBeUndefined();
         expect(printEvidenceDimensions({ ...baseAuto(), mediaWidthMm: undefined })).toBeUndefined();
         expect(printEvidenceDimensions({ ...baseAuto(), paperType: undefined })).toBeUndefined();
