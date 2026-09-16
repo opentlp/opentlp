@@ -22,9 +22,9 @@ export const KNOWN_COMPANION_APPS: CompanionAppInfo[] = [
         brandPalette: ['#0068a0', '#284cc8', '#ffffff'],
         badgeLetter: 'P',
         popularModels: ['L13', 'DP-L13', 'SilverCrest', 'Crafts&Co', 'Fichero'],
-        summary: 'European retail pocket and label printers (Action, Lidl SilverCrest, Crafts&Co). Supports both Pocket Printer (58mm) and Label Printer (L13) protocols.',
+        summary: 'European retail label printer (Lidl SilverCrest L13, Crafts&Co, Fichero). The L13 is the rebadged Marklife-legacy unit the official Karsten Pocket Printer app drives.',
         replacesApps: ['Pocket Printer', 'Pocket Print'],
-        isMultiDevice: true,
+        isMultiDevice: false,
         playStoreUrl: 'https://play.google.com/store/apps/details?id=com.printer.lidloffice',
         appStoreUrl: 'https://apps.apple.com/app/pocket-printer/id6444190726'
     },

@@ -21,11 +21,10 @@ describe('Printer Picker App & Conditional Kind Logic', () => {
     });
 
     it('requires device protocol disambiguation only for apps supporting multiple driver protocols', () => {
-        // Pocket Printer app replaces two different driver protocols (Catprinter 58mm and Marklife L13)
+        // Pocket Printer is single-device: the Lidl Silvercrest L13 only, so
+        // it no longer requires disambiguation between pocket and label kinds.
         const pocketPrinterProtocols = pm.getKindsForApp('Pocket Printer');
-        expect(pocketPrinterProtocols).toContain('pocket');
-        expect(pocketPrinterProtocols).toContain('label');
-        expect(pocketPrinterProtocols.length).toBeGreaterThanOrEqual(2);
+        expect(pocketPrinterProtocols).toEqual(['label']);
 
         // Phomemo has both M02 continuous protocol and M110/D30 label protocol
         const phomemoProtocols = pm.getKindsForApp('Phomemo');
@@ -42,12 +41,12 @@ describe('Printer Picker App & Conditional Kind Logic', () => {
     });
 
     it('correctly associates AUTO_APP_PROFILES with replacesApps and protocols', () => {
-        // Pocket Printer has auto profiles for both continuous and label protocols
+        // Pocket Printer has a single auto profile: the L13 label printer.
         const pocketPrinterAutos = AUTO_APP_PROFILES.filter(
             a => a.app === 'Pocket Printer' || a.replacesApps?.includes('Pocket Printer')
         );
-        expect(pocketPrinterAutos.some(a => a.kind === 'pocket')).toBe(true);
-        expect(pocketPrinterAutos.some(a => a.kind === 'label')).toBe(true);
+        expect(pocketPrinterAutos.length).toBe(1);
+        expect(pocketPrinterAutos.every(a => a.kind === 'label')).toBe(true);
 
         // Tiny Print auto-detect profile
         const tinyAutos = AUTO_APP_PROFILES.filter(
@@ -79,9 +78,9 @@ describe('Printer Picker App & Conditional Kind Logic', () => {
 
         const gb01 = printerProfiles.find(p => p.id === 'catprinter_gb01');
         expect(gb01).toBeDefined();
-        expect(gb01?.replacesApps).toContain('Pocket Printer');
-        expect(gb01?.replacesApps).toContain('Pocket Print');
         expect(gb01?.replacesApps).toContain('Tiny Print');
+        expect(gb01?.replacesApps).not.toContain('Pocket Printer');
+        expect(gb01?.replacesApps).not.toContain('Pocket Print');
 
         const l13 = printerProfiles.find(p => p.id === 'marklife_l13');
         expect(l13).toBeDefined();
@@ -146,7 +145,7 @@ describe('Companion App Directory (KNOWN_COMPANION_APPS)', () => {
         expect(pocketApp?.name).toBe('Pocket Printer');
         expect(pocketApp?.developer).toContain('Karsten International');
         expect(pocketApp?.popularModels).toEqual(expect.arrayContaining(['L13', 'SilverCrest', 'Crafts&Co']));
-        expect(pocketApp?.isMultiDevice).toBe(true);
+        expect(pocketApp?.isMultiDevice).toBe(false);
         expect(pocketApp?.replacesApps).toContain('Pocket Printer');
         expect(pocketApp?.replacesApps).toContain('Pocket Print');
     });

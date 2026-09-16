@@ -2,7 +2,7 @@
 id: pocket-printer
 name: Pocket Printer
 developer: Karsten International B.V.
-summary: European retail pocket and label printers (Action, Lidl SilverCrest, Crafts&Co). Supports both Pocket Printer (58mm) and Label Printer (L13) protocols.
+summary: European retail label printer (Lidl SilverCrest L13, Crafts&Co, Fichero). The L13 is the rebadged Marklife-legacy unit the official Karsten Pocket Printer app drives.
 brand_color: "#0068a0"
 brand_palette:
   - "#0068a0"
@@ -17,7 +17,6 @@ platforms:
     id: 6444190726
     url: https://apps.apple.com/app/pocket-printer/id6444190726
 protocols:
-  - catprinter-v5x
   - marklife
 replaces_apps:
   - Pocket Printer
@@ -28,7 +27,7 @@ popular_models:
   - SilverCrest
   - Crafts&Co
   - Fichero
-is_multi_device: true
+is_multi_device: false
 status: verified
 sources:
   - kind: user-report
@@ -45,11 +44,8 @@ sources:
 
 **Pocket Printer** is a companion app published primarily by **Karsten International B.V.** (Amsterdam, Netherlands) for thermal printers distributed widely through major European retail chains including Lidl (under the *SilverCrest* house brand), Action (*Crafts & Co*, *Fichero*), and various discount retail outlets.
 
-## Dual-Protocol Architecture
+## Hardware
 
-Pocket Printer is a **multi-device application**. Unlike single-protocol companion apps, the app bundles two completely unrelated driver engines depending on which device model the user connects:
+The official **Pocket Printer** app (`com.printer.lidloffice`) was built by Xiamen Lujiang / LuckPrinter for the **Lidl Silvercrest Pocket Printer (L13)** — a rebadged 15 mm Marklife-legacy label maker sold under the Lidl *SilverCrest*, Action *Crafts & Co*, and *Fichero* brands. It speaks the [marklife](marklife.html) protocol's legacy `10 FF` job path (`10 FF F1 02` … `GS v 0` … `10 FF F1 45`).
 
-1. **Continuous 58 mm Pocket Printers**: Communicates using the [catprinter-v5x](catprinter-v5x.html) protocol family (GB01, MX-series variants).
-2. **15 mm Tape Label Makers**: Communicates using the [marklife](marklife.html) protocol family, specifically the OEM Marklife L13 platform sold under Lidl SilverCrest and Crafts & Co branding.
-
-OpenTLP detects this distinction and provides protocol disambiguation when Pocket Printer is selected.
+> The 58 mm continuous *Mini-Pocket-Printer* also sold under SilverCrest is **not** driven by this app — it is a Tiny Print (0x51/0x78) rebadge handled by the [tiny](tiny.html) family and the **Tiny Print** / **iPrint** companion apps. Earlier community catalogs conflated the two under a single "Pocket Printer" profile; OpenTLP keeps them separate.

@@ -13,26 +13,15 @@ export const AUTO_APP_PROFILES: PrinterModelProfile[] = [
         notes: 'Auto-connects to any Tiny Print-compatible pocket printer (GB01, MX05, MX06, etc.)'
     },
     {
-        id: 'auto:pocket_print_pocket',
-        brand: 'Pocket Printer',
-        model: 'Auto-detect Pocket Printer',
-        app: 'Pocket Printer',
-        replacesApps: ['Pocket Printer', 'Pocket Print'],
-        kind: 'pocket',
-        supportedTransports: ['bluetooth-le'],
-        capabilities: { canvasHeightPx: 384, maxDensity: 1, supportsSpeedMode: false, colorSupport: { type: 'monochrome' }, dpmm: 8, driverId: 'catprinter-tiny-standard', driverName: 'Catprinter (Tiny 0x51/0x78)' },
-        notes: 'Connects using the Pocket Printer continuous protocol (Karsten / Crafts&Co / Action)'
-    },
-    {
         id: 'auto:pocket_print_label',
         brand: 'Pocket Printer',
-        model: 'Auto-detect Label Printer',
+        model: 'Auto-detect Label Printer (L13)',
         app: 'Pocket Printer',
         replacesApps: ['Pocket Printer', 'Pocket Print'],
         kind: 'label',
         supportedTransports: ['bluetooth-le', 'bluetooth-classic', 'usb-serial'],
         capabilities: { canvasHeightPx: 96, maxDensity: 15, supportsSpeedMode: false, colorSupport: { type: 'monochrome' }, dpmm: 8, driverId: 'marklife-0x10ff', driverName: 'Marklife-0x10FF' },
-        notes: 'Connects using the Marklife legacy protocol (Karsten / L13 / DP-L13 / Silvercrest)'
+        notes: 'Auto-connects the Lidl Silvercrest / Karsten Pocket Printer L13 (also DP-L13, Crafts&Co, Fichero) via the Marklife legacy 10 FF protocol.'
     },
     {
         id: 'auto:marklife',

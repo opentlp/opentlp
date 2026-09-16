@@ -86,6 +86,10 @@ if (lp90) {
     // P12 everywhere that matters — same 96-dot head, same label sizes, same
     // density table — but drives it through its older `10 FF` command path
     // (see MARKLIFE_10FF_PREFIXES below) rather than the P12's 1F job control.
+    // A Marklife-family model driven by the Marklife app, not the Lidl Pocket
+    // Printer app, so scope it away from the L13's app override.
+    lp90.app = 'Marklife';
+    lp90.replacesApps = ['Marklife'];
     lp90.notes = `Sold in Korea; the manufacturer's app treats it as a P12-class 96-dot printer.
 
 Driven with the manufacturer's legacy job framing (\`10 FF F1 02\` … \`10 FF F1 45\`)
@@ -93,6 +97,18 @@ and an uncompressed \`GS v 0\` raster, which is exactly what the official app se
 to this model.`;
 }
 
+// The 0x10ff driver default app is Pocket Printer (the Lidl/L13 path), but
+// every other 0x10ff model is a Marklife-family unit driven by the Marklife
+// app. Without an explicit override each would inherit the driver-level app
+// and be listed under Pocket Printer. Scope them here so only the L13 maps to
+// the Karsten / Lidl Pocket Printer app.
+for (const m of marklife15mm) {
+    if (m.model === 'L13') continue;
+    if (!m.app) {
+        m.app = 'Marklife';
+        m.replacesApps = ['Marklife'];
+    }
+}
 const l13 = marklife15mm.find(m => m.model === 'L13');
 if (l13) {
     // Rebadged 15 mm unit sold under several house brands and identified by the

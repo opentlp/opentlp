@@ -323,10 +323,17 @@ describe('PrintManager', () => {
         const gb01 = profiles.find(p => p.id === 'catprinter_gb01');
         expect(gb01).toBeDefined();
         expect(gb01?.app).toBe('Tiny Print');
-        expect(gb01?.replacesApps).toContain('Pocket Printer');
-        expect(gb01?.replacesApps).toContain('Pocket Print');
+        expect(gb01?.replacesApps).toContain('Tiny Print');
+        expect(gb01?.replacesApps).not.toContain('Pocket Printer');
+        expect(gb01?.replacesApps).not.toContain('Pocket Print');
         expect(gb01?.kind).toBe('pocket');
         expect(gb01?.supportedTransports).toEqual(['bluetooth-le']);
+
+        // Only the L13 maps to the official Pocket Printer app; other 0x10ff
+        // Marklife models stay under Marklife.
+        const lp90 = profiles.find(p => p.id === 'marklife_lp90');
+        expect(lp90?.app).toBe('Marklife');
+        expect(lp90?.replacesApps).not.toContain('Pocket Printer');
     });
 
     it('finds driver by mobile app name and optional kind', () => {
@@ -342,7 +349,8 @@ describe('PrintManager', () => {
         expect(niimbotDriver).toBeDefined();
         expect(niimbotDriver?.name).toContain('Niimbot');
 
-        // Can find by both "Pocket Printer" and "Pocket Print"
+        // Pocket Printer is the L13 only (label), so it resolves to the
+        // Marklife 0x10FF driver and not to the catprinter pocket driver.
         const pocketPrinterLabel = printManager.getDriverForApp('Pocket Printer', 'label');
         expect(pocketPrinterLabel).toBeDefined();
         expect(pocketPrinterLabel?.name).toBe('Marklife-0x10FF');
@@ -351,13 +359,8 @@ describe('PrintManager', () => {
         expect(pocketPrintLabel).toBeDefined();
         expect(pocketPrintLabel?.name).toBe('Marklife-0x10FF');
 
-        const pocketPrinterPocket = printManager.getDriverForApp('Pocket Printer', 'pocket');
-        expect(pocketPrinterPocket).toBeDefined();
-        expect(pocketPrinterPocket?.name).toContain('Catprinter (Tiny');
-
-        const pocketPrintPocket = printManager.getDriverForApp('Pocket Print', 'pocket');
-        expect(pocketPrintPocket).toBeDefined();
-        expect(pocketPrintPocket?.name).toContain('Catprinter (Tiny');
+        expect(printManager.getDriverForApp('Pocket Printer', 'pocket')).toBeUndefined();
+        expect(printManager.getDriverForApp('Pocket Print', 'pocket')).toBeUndefined();
     });
 
     it('retrieves replaced app names and kinds per app', () => {
@@ -372,12 +375,10 @@ describe('PrintManager', () => {
         expect(replacedApps).toContain('PeriPage');
 
         const pocketPrinterKinds = printManager.getKindsForApp('Pocket Printer');
-        expect(pocketPrinterKinds).toContain('pocket');
-        expect(pocketPrinterKinds).toContain('label');
+        expect(pocketPrinterKinds).toEqual(['label']);
 
         const pocketPrintKinds = printManager.getKindsForApp('Pocket Print');
-        expect(pocketPrintKinds).toContain('pocket');
-        expect(pocketPrintKinds).toContain('label');
+        expect(pocketPrintKinds).toEqual(['label']);
 
         const marklifeKinds = printManager.getKindsForApp('Marklife');
         expect(marklifeKinds).toEqual(['label']);
@@ -390,9 +391,6 @@ describe('PrintManager', () => {
         expect(printManager.getDriverForModel('auto:marklife')?.name).toBe('Marklife-0x1F');
         expect(printManager.getDriverForModel('auto:pocket_print_label')?.name).toBe('Marklife-0x10FF');
         expect(printManager.getDriverForModel('auto:pocket_printer_label')?.name).toBe('Marklife-0x10FF');
-        expect(printManager.getDriverForModel('auto:pocket_print_pocket')?.name).toContain('Catprinter (Tiny');
-        expect(printManager.getDriverForModel('auto:pocket_printer_pocket')?.name).toContain('Catprinter (Tiny');
-        expect(printManager.getDriverForModel('auto:pocket_print_pocket')?.name).toContain('Catprinter (Tiny');
         expect(printManager.getDriverForModel('auto:tiny_print')?.name).toContain('Catprinter (Tiny');
         expect(printManager.getDriverForModel('auto:niimbot')?.name).toContain('Niimbot');
     });

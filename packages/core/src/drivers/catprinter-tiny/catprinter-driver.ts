@@ -62,7 +62,7 @@ export class CatPrinterDriver implements IPrinterDriver {
     readonly name: string;
     readonly driverType = 'hardware' as const;
     readonly app = 'Tiny Print';
-    readonly replacesApps = ['Tiny Print', 'Pocket Printer', 'Pocket Print', 'iPrint'] as const;
+    readonly replacesApps = ['Tiny Print', 'iPrint'] as const;
     readonly defaultKind = 'pocket' as const;
     readonly supportedKinds = ['pocket'] as const;
     readonly supportedTransports = ['bluetooth-le'] as const;

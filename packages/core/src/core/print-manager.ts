@@ -225,7 +225,10 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
             if (d.defaultKind === kind) return true;
             return d.supportedModels?.some(m => m.kind === kind);
         });
-        return match ?? drivers[0];
+        // When a form factor is requested, only return a driver that actually
+        // supports it — falling back to the first driver would silently pick a
+        // different protocol (e.g. a label driver for a pocket request).
+        return match;
     }
 
     /**
@@ -268,9 +271,6 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
         const idLower = modelId.toLowerCase();
         if (idLower.startsWith('auto:')) {
             const key = idLower.slice(5);
-            if (key === 'pocket_print_pocket' || key === 'pocket_printer_pocket') {
-                return this.registeredDrivers.find(d => d.id === 'catprinter-tiny-standard');
-            }
             if (key === 'pocket_print_label' || key === 'pocket_printer_label') {
                 return this.registeredDrivers.find(d => d.id === 'marklife-0x10ff');
             }
