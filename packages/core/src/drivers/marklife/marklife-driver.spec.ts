@@ -372,4 +372,61 @@ describe('MarklifeDriver', () => {
         const endBytes = job.slice(job.length - 4);
         expect([...endBytes]).toEqual([0x10, 0xff, 0xf1, 0x45]);
     });
+
+    it('reads battery, name, serial, firmware and hardware over the INFO service', async () => {
+        // The P15 answers the 10 FF INFO query family on the ISSC notify
+        // characteristic (49535343-1e4d...). This guards the regression where a
+        // write-without-response to the command characteristic was silently
+        // dropped, leaving every status field empty even though the printer
+        // had answered.
+        const INFO_NOTIFY = '49535343-1e4d-4bd9-ba61-23c647249616';
+        const enc = (s: string) => Array.from(new TextEncoder().encode(s));
+        // The real device answers each query with a short reply whose second
+        // byte carries the value (battery percent) or whose body is the text
+        // value verbatim -- no command-echo header, matching what BleWebler's
+        // parsers expect (parseBattery reads buf[1]; parseText decodes the body).
+        const responses = new Map<string, Uint8Array>([
+            ['10ff50f1', new Uint8Array([0x50, 87])],            // battery 87%
+            ['10ff40', new Uint8Array([0x40, 0x00])],          // paper present
+            ['10ff20ef', new Uint8Array(enc('HW1.0'))],
+            ['10ff20f0', new Uint8Array(enc('P15_90DD'))],
+            ['10ff20f1', new Uint8Array(enc('FW2.3'))],
+            ['10ff20f2', new Uint8Array(enc('SN123456'))]
+        ]);
+
+        class InfoRespondingTransport extends EventEmitter<TransportEventMap> implements IDeviceTransport {
+            type = "Mock";
+            filterType = 'bluetooth-le' as const;
+            public writes: { data: Uint8Array; writeUUID: string }[] = [];
+            constructor(private readonly deviceName: string) { super(); }
+            async connect() {}
+            async disconnect() {}
+            isConnected() { return true; }
+            getDeviceName() { return this.deviceName; }
+            async write(data: Uint8Array, info?: { serviceUUID: string; writeUUID: string }) {
+                this.writes.push({ data: new Uint8Array(data), writeUUID: info?.writeUUID ?? '' });
+                const key = [...data].map(b => b.toString(16).padStart(2, '0')).join('');
+                // Match on the leading query bytes only (payload may carry trailing args).
+                const reply = [...responses.entries()].find(([k]) => key.startsWith(k));
+                if (reply) {
+                    setTimeout(() => this.emit('data', new Uint8Array(reply[1]), INFO_NOTIFY), 0);
+                }
+            }
+            async startNotifications() {}
+        }
+
+        const transport = new InfoRespondingTransport('P15_90DD_BLE');
+        const legacyDriver = new MarklifeDriver('0x10ff');
+        await legacyDriver.bindTransport(transport);
+
+        const status = await legacyDriver.getStatus();
+
+        // Every INFO query must have been written to the ISSC command char.
+        expect(transport.writes.some(w => w.writeUUID === '49535343-8841-43f4-a8d4-ecbe34729bb3')).toBe(true);
+        expect(status.battery?.level).toBeCloseTo(0.87);
+        expect(status.identity.deviceName).toBe('P15_90DD');
+        expect(status.identity.serialNumber).toBe('SN123456');
+        expect(status.identity.firmwareVersion).toBe('FW2.3');
+        expect(status.identity.hardwareVersion).toBe('HW1.0');
+    });
 });

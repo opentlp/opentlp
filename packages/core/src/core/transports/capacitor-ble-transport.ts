@@ -100,17 +100,58 @@ export class CapacitorBleTransport extends EventEmitter<TransportEventMap> imple
     public async write(data: Uint8Array, characteristicsInfo: { serviceUUID: string, writeUUID: string }): Promise<void> {
         if (!this.deviceId) throw new Error("Not connected");
 
+        const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+
         try {
-            await BleClient.writeWithoutResponse(
-                this.deviceId,
-                characteristicsInfo.serviceUUID,
-                characteristicsInfo.writeUUID,
-                new DataView(data.buffer, data.byteOffset, data.byteLength)
-            );
+            // The transport owns the write mode and picks it from the
+            // characteristic's own GATT properties, mirroring the web transport.
+            // Prefer write-with-response for command/query characteristics: the
+            // Marklife INFO service only answers queries written with response,
+            // and a write-without-response is silently dropped there. Fall back
+            // to write-without-response for characteristics that only advertise
+            // it. This matches what the original BleWebler did with `writeValue`.
+            if (await this.supportsWriteWithResponse(characteristicsInfo)) {
+                await BleClient.write(
+                    this.deviceId,
+                    characteristicsInfo.serviceUUID,
+                    characteristicsInfo.writeUUID,
+                    view
+                );
+            } else {
+                await BleClient.writeWithoutResponse(
+                    this.deviceId,
+                    characteristicsInfo.serviceUUID,
+                    characteristicsInfo.writeUUID,
+                    view
+                );
+            }
         } catch (error: any) {
             console.error("[CapacitorBle] Write failed", error);
             throw error;
         }
+    }
+
+    private charPropsCache = new Map<string, { write: boolean; writeWithoutResponse: boolean }>();
+
+    private async supportsWriteWithResponse(info: { serviceUUID: string, writeUUID: string }): Promise<boolean> {
+        const key = `${info.serviceUUID}|${info.writeUUID}`.toLowerCase();
+        const cached = this.charPropsCache.get(key);
+        if (cached) return cached.write;
+
+        let write = true;
+        try {
+            const services = await BleClient.getServices(this.deviceId!);
+            const service = services.find(s => s.uuid.toLowerCase() === info.serviceUUID.toLowerCase());
+            const char = service?.characteristics?.find(c => c.uuid.toLowerCase() === info.writeUUID.toLowerCase());
+            const props = char?.properties;
+            if (props) {
+                write = Boolean(props.write);
+                this.charPropsCache.set(key, { write, writeWithoutResponse: Boolean(props.writeWithoutResponse) });
+            }
+        } catch (e) {
+            console.warn("[CapacitorBle] Could not read characteristic properties; assuming write-with-response", e);
+        }
+        return write;
     }
 
     public async startNotifications(characteristicsInfo: { serviceUUID: string, notifyUUID: string }): Promise<void> {
@@ -149,6 +190,7 @@ export class CapacitorBleTransport extends EventEmitter<TransportEventMap> imple
     private handleDisconnect() {
         this.deviceId = null;
         this.deviceName = undefined;
+        this.charPropsCache.clear();
         this.emit("disconnected");
     }
 }
