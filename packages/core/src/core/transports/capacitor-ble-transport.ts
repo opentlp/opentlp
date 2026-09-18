@@ -14,6 +14,11 @@ export interface WriteCharacteristicsInfo {
     writeMode?: WriteMode;
 }
 
+interface QueuedWrite {
+    run: () => Promise<void>;
+    reject: (reason: unknown) => void;
+}
+
 export class CapacitorBleTransport extends EventEmitter<TransportEventMap> implements IDeviceTransport {
     public readonly type = "Bluetooth-Capacitor";
     public readonly filterType = 'bluetooth-le' as const;
@@ -22,7 +27,7 @@ export class CapacitorBleTransport extends EventEmitter<TransportEventMap> imple
     private initialized = false;
 
     // Write queue to serialize GATT operations and prevent "operation already in progress" errors
-    private writeQueue: Array<() => Promise<void>> = [];
+    private writeQueue: QueuedWrite[] = [];
     private writeInProgress = false;
 
     // Cache the resolved write mode per characteristic UUID
@@ -117,7 +122,7 @@ export class CapacitorBleTransport extends EventEmitter<TransportEventMap> imple
 
         // Queue the write operation to serialize GATT operations
         return new Promise<void>((resolve, reject) => {
-            this.writeQueue.push(async () => {
+            const queuedWrite: QueuedWrite = { reject, run: async () => {
                 try {
                     const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
 
@@ -179,10 +184,16 @@ export class CapacitorBleTransport extends EventEmitter<TransportEventMap> imple
                     console.error("[CapacitorBle] Write failed", error);
                     reject(error);
                 } finally {
-                    this.writeQueue.shift();
-                    this.processWriteQueue();
+                    // A disconnect can clear this queue while the BLE call settles.
+                    // Do not let that old call remove work from a new connection.
+                    if (this.writeQueue[0] === queuedWrite) {
+                        this.writeQueue.shift();
+                        this.writeInProgress = false;
+                        this.processWriteQueue();
+                    }
                 }
-            });
+            } };
+            this.writeQueue.push(queuedWrite);
             this.processWriteQueue();
         });
     }
@@ -191,7 +202,7 @@ export class CapacitorBleTransport extends EventEmitter<TransportEventMap> imple
         if (this.writeInProgress || this.writeQueue.length === 0) return;
         this.writeInProgress = true;
         const operation = this.writeQueue[0];
-        void operation().catch(() => {
+        void operation.run().catch(() => {
             // Errors are already handled in the operation itself
         });
     }
@@ -256,8 +267,11 @@ export class CapacitorBleTransport extends EventEmitter<TransportEventMap> imple
         this.deviceId = null;
         this.deviceName = undefined;
         this.charPropsCache.clear();
-        this.writeQueue = [];
+        const pendingWrites = this.writeQueue.splice(0);
         this.writeInProgress = false;
+        for (const operation of pendingWrites) {
+            operation.reject(new Error('Bluetooth disconnected. Reconnect the printer first.'));
+        }
         this.writeModeCache.clear();
         this.emit("disconnected");
     }

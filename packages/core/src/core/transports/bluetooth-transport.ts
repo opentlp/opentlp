@@ -12,6 +12,11 @@ export interface WriteCharacteristicsInfo {
     writeMode?: WriteMode;
 }
 
+interface QueuedWrite {
+    run: () => Promise<void>;
+    reject: (reason: unknown) => void;
+}
+
 export class UniversalBluetoothTransport extends EventEmitter<TransportEventMap> implements IDeviceTransport {
     public readonly type = "Bluetooth";
     public readonly filterType = 'bluetooth-le' as const;
@@ -25,7 +30,7 @@ export class UniversalBluetoothTransport extends EventEmitter<TransportEventMap>
     private writeCharacteristics: Map<string, BluetoothRemoteGATTCharacteristic> = new Map();
 
     // Write queue to serialize GATT operations and prevent "operation already in progress" errors
-    private writeQueue: Array<() => Promise<void>> = [];
+    private writeQueue: QueuedWrite[] = [];
     private writeInProgress = false;
 
     // Cache the resolved write mode per characteristic UUID
@@ -79,7 +84,7 @@ export class UniversalBluetoothTransport extends EventEmitter<TransportEventMap>
         }
         // Queue the write operation to serialize GATT operations
         return new Promise<void>((resolve, reject) => {
-            this.writeQueue.push(async () => {
+            const queuedWrite: QueuedWrite = { reject, run: async () => {
                 try {
                     const server = this.requireConnectedServer();
 
@@ -171,10 +176,16 @@ export class UniversalBluetoothTransport extends EventEmitter<TransportEventMap>
                 } catch (error) {
                     reject(error);
                 } finally {
-                    this.writeQueue.shift();
-                    this.processWriteQueue();
+                    // A disconnect can clear this queue while the GATT call settles.
+                    // Do not let that old call remove work from a new connection.
+                    if (this.writeQueue[0] === queuedWrite) {
+                        this.writeQueue.shift();
+                        this.writeInProgress = false;
+                        this.processWriteQueue();
+                    }
                 }
-            });
+            } };
+            this.writeQueue.push(queuedWrite);
             this.processWriteQueue();
         });
     }
@@ -183,7 +194,7 @@ export class UniversalBluetoothTransport extends EventEmitter<TransportEventMap>
         if (this.writeInProgress || this.writeQueue.length === 0) return;
         this.writeInProgress = true;
         const operation = this.writeQueue[0];
-        void operation().catch(() => {
+        void operation.run().catch(() => {
             // Errors are already handled in the operation itself
         });
     }
@@ -295,8 +306,11 @@ export class UniversalBluetoothTransport extends EventEmitter<TransportEventMap>
         this.primaryServiceUUIDs = undefined;
         this.writeCharacteristics.clear();
         this.notifyCharacteristics.clear();
-        this.writeQueue = [];
+        const pendingWrites = this.writeQueue.splice(0);
         this.writeInProgress = false;
+        for (const operation of pendingWrites) {
+            operation.reject(new DOMException('GATT Server disconnected. Reconnect the printer first.', 'NetworkError'));
+        }
         this.writeModeCache.clear();
     }
 }
