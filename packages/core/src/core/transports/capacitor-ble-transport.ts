@@ -6,12 +6,27 @@ import { BleClient, RequestBleDeviceOptions } from "@capacitor-community/bluetoo
  * CapacitorBleTransport utilizes the 'BleClient' wrapper from '@capacitor-community/bluetooth-le'.
  * Note: BleClient uses POSITIONAL arguments for most methods.
  */
+export type WriteMode = 'with-response' | 'without-response' | 'auto';
+
+export interface WriteCharacteristicsInfo {
+    serviceUUID: string;
+    writeUUID: string;
+    writeMode?: WriteMode;
+}
+
 export class CapacitorBleTransport extends EventEmitter<TransportEventMap> implements IDeviceTransport {
     public readonly type = "Bluetooth-Capacitor";
     public readonly filterType = 'bluetooth-le' as const;
     private deviceId: string | null = null;
     private deviceName: string | undefined;
     private initialized = false;
+
+    // Write queue to serialize GATT operations and prevent "operation already in progress" errors
+    private writeQueue: Array<() => Promise<void>> = [];
+    private writeInProgress = false;
+
+    // Cache the resolved write mode per characteristic UUID
+    private writeModeCache: Map<string, WriteMode> = new Map();
 
     private async ensureInitialized() {
         if (!this.initialized) {
@@ -97,48 +112,98 @@ export class CapacitorBleTransport extends EventEmitter<TransportEventMap> imple
         }
     }
 
-    public async write(data: Uint8Array, characteristicsInfo: { serviceUUID: string, writeUUID: string }): Promise<void> {
+    public async write(data: Uint8Array, characteristicsInfo: WriteCharacteristicsInfo): Promise<void> {
         if (!this.deviceId) throw new Error("Not connected");
 
-        const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+        // Queue the write operation to serialize GATT operations
+        return new Promise<void>((resolve, reject) => {
+            this.writeQueue.push(async () => {
+                try {
+                    const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
 
-        try {
-            // The transport owns the write mode and picks it from the
-            // characteristic's own GATT properties, mirroring the web transport.
-            // Prefer write-with-response for command/query characteristics: the
-            // Marklife INFO service only answers queries written with response,
-            // and a write-without-response is silently dropped there. Fall back
-            // to write-without-response for characteristics that only advertise
-            // it. This matches what the original BleWebler did with `writeValue`.
-            if (await this.supportsWriteWithResponse(characteristicsInfo)) {
-                await BleClient.write(
-                    this.deviceId,
-                    characteristicsInfo.serviceUUID,
-                    characteristicsInfo.writeUUID,
-                    view
-                );
-            } else {
-                await BleClient.writeWithoutResponse(
-                    this.deviceId,
-                    characteristicsInfo.serviceUUID,
-                    characteristicsInfo.writeUUID,
-                    view
-                );
-            }
-        } catch (error: any) {
-            console.error("[CapacitorBle] Write failed", error);
-            throw error;
-        }
+                    // Determine write mode: driver hint > cached mode > auto-detect
+                    const cacheKey = `${characteristicsInfo.serviceUUID}|${characteristicsInfo.writeUUID}`.toLowerCase();
+                    const cachedMode = this.writeModeCache.get(cacheKey);
+
+                    const requestedMode = characteristicsInfo.writeMode;
+
+                    let mode: WriteMode;
+                    if (requestedMode) {
+                        mode = requestedMode;
+                    } else if (cachedMode) {
+                        mode = cachedMode;
+                    } else {
+                        mode = 'auto';
+                    }
+
+                    let useWriteWithResponse: boolean;
+
+                    if (mode === 'with-response') {
+                        useWriteWithResponse = true;
+                    } else if (mode === 'without-response') {
+                        useWriteWithResponse = false;
+                    } else {
+                        // Auto: prefer without-response, fall back to with-response
+                        useWriteWithResponse = await this.supportsWriteWithResponse(characteristicsInfo);
+                    }
+
+                    if (!useWriteWithResponse) {
+                        try {
+                            await BleClient.writeWithoutResponse(
+                                this.deviceId!,
+                                characteristicsInfo.serviceUUID,
+                                characteristicsInfo.writeUUID,
+                                view
+                            );
+                            // Cache successful without-response mode
+                            this.writeModeCache.set(cacheKey, 'without-response');
+                            resolve();
+                            return;
+                        } catch (e: any) {
+                            // Fallback to write if writeWithoutResponse fails
+                            console.warn("[CapacitorBle] writeWithoutResponse failed, trying write:", e.message);
+                            useWriteWithResponse = true;
+                        }
+                    }
+
+                    await BleClient.write(
+                        this.deviceId!,
+                        characteristicsInfo.serviceUUID,
+                        characteristicsInfo.writeUUID,
+                        view
+                    );
+                    // Cache successful with-response mode
+                    this.writeModeCache.set(cacheKey, 'with-response');
+                    resolve();
+                } catch (error: any) {
+                    console.error("[CapacitorBle] Write failed", error);
+                    reject(error);
+                } finally {
+                    this.writeQueue.shift();
+                    this.processWriteQueue();
+                }
+            });
+            this.processWriteQueue();
+        });
+    }
+
+    private processWriteQueue(): void {
+        if (this.writeInProgress || this.writeQueue.length === 0) return;
+        this.writeInProgress = true;
+        const operation = this.writeQueue[0];
+        void operation().catch(() => {
+            // Errors are already handled in the operation itself
+        });
     }
 
     private charPropsCache = new Map<string, { write: boolean; writeWithoutResponse: boolean }>();
 
-    private async supportsWriteWithResponse(info: { serviceUUID: string, writeUUID: string }): Promise<boolean> {
+    private async supportsWriteWithResponse(info: { serviceUUID: string; writeUUID: string }): Promise<boolean> {
         const key = `${info.serviceUUID}|${info.writeUUID}`.toLowerCase();
         const cached = this.charPropsCache.get(key);
         if (cached) return cached.write;
 
-        let write = true;
+        let write = false;
         try {
             const services = await BleClient.getServices(this.deviceId!);
             const service = services.find(s => s.uuid.toLowerCase() === info.serviceUUID.toLowerCase());
@@ -149,12 +214,12 @@ export class CapacitorBleTransport extends EventEmitter<TransportEventMap> imple
                 this.charPropsCache.set(key, { write, writeWithoutResponse: Boolean(props.writeWithoutResponse) });
             }
         } catch (e) {
-            console.warn("[CapacitorBle] Could not read characteristic properties; assuming write-with-response", e);
+            console.warn("[CapacitorBle] Could not read characteristic properties; assuming write-without-response", e);
         }
         return write;
     }
 
-    public async startNotifications(characteristicsInfo: { serviceUUID: string, notifyUUID: string }): Promise<void> {
+    public async startNotifications(characteristicsInfo: { serviceUUID: string; notifyUUID: string }): Promise<void> {
         if (!this.deviceId) throw new Error("Not connected");
 
         await BleClient.startNotifications(
@@ -191,6 +256,9 @@ export class CapacitorBleTransport extends EventEmitter<TransportEventMap> imple
         this.deviceId = null;
         this.deviceName = undefined;
         this.charPropsCache.clear();
+        this.writeQueue = [];
+        this.writeInProgress = false;
+        this.writeModeCache.clear();
         this.emit("disconnected");
     }
 }
@@ -198,7 +266,7 @@ export class CapacitorBleTransport extends EventEmitter<TransportEventMap> imple
 /**
  * Every bundled driver contributes its own services through the scan filters.
  * Keeping a second handwritten list here made native discovery lag behind the
- * web build — notably, the Tiny family's AE30 service was missing entirely.
+ * web build \u2014 notably, the Tiny family's AE30 service was missing entirely.
  */
 export function collectOptionalServices(
     filters: BluetoothLEScanFilter[],

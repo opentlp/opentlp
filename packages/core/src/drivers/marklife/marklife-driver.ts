@@ -591,7 +591,9 @@ export class MarklifeDriver implements IPrinterDriver {
             transport.on('data', onData);
             transport.write(new Uint8Array(packet), {
                 serviceUUID: INFO_SERVICE,
-                writeUUID: WRITE_CHAR}).catch(err => {
+                writeUUID: WRITE_CHAR,
+                writeMode: 'with-response'
+            }).catch(err => {
                 clearTimeout(timer);
                 transport.off('data', onData);
                 reject(toPrinterError(err, 'transport'));

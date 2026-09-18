@@ -4,6 +4,14 @@ import { IDeviceTransport, BluetoothLEScanFilter, TransportEventMap } from "./tr
 /**
  * UniversalBluetoothTransport relies on the standard Web Bluetooth API `navigator.bluetooth`.
  */
+export type WriteMode = 'with-response' | 'without-response' | 'auto';
+
+export interface WriteCharacteristicsInfo {
+    serviceUUID: string;
+    writeUUID: string;
+    writeMode?: WriteMode;
+}
+
 export class UniversalBluetoothTransport extends EventEmitter<TransportEventMap> implements IDeviceTransport {
     public readonly type = "Bluetooth";
     public readonly filterType = 'bluetooth-le' as const;
@@ -15,6 +23,13 @@ export class UniversalBluetoothTransport extends EventEmitter<TransportEventMap>
     // Track the connected characteristics per service required by drivers
     private notifyCharacteristics: Map<string, BluetoothRemoteGATTCharacteristic> = new Map();
     private writeCharacteristics: Map<string, BluetoothRemoteGATTCharacteristic> = new Map();
+
+    // Write queue to serialize GATT operations and prevent "operation already in progress" errors
+    private writeQueue: Array<() => Promise<void>> = [];
+    private writeInProgress = false;
+
+    // Cache the resolved write mode per characteristic UUID
+    private writeModeCache: Map<string, WriteMode> = new Map();
 
     async connect(filters: BluetoothLEScanFilter[] = []): Promise<void> {
         if (!navigator.bluetooth) {
@@ -58,54 +73,119 @@ export class UniversalBluetoothTransport extends EventEmitter<TransportEventMap>
         this.clearConnectionCache();
     }
 
-    async write(data: Uint8Array, characteristicsInfo?: { serviceUUID: string, writeUUID: string }): Promise<void> {
+    async write(data: Uint8Array, characteristicsInfo?: WriteCharacteristicsInfo): Promise<void> {
         if (!characteristicsInfo) {
             throw new Error("Transport is not fully connected or characteristicsInfo is missing.");
         }
-        const server = this.requireConnectedServer();
+        // Queue the write operation to serialize GATT operations
+        return new Promise<void>((resolve, reject) => {
+            this.writeQueue.push(async () => {
+                try {
+                    const server = this.requireConnectedServer();
 
-        // A caching mechanism to retain characteristics could go here
-        let writeChar = this.writeCharacteristics.get(characteristicsInfo.writeUUID);
+                    // A caching mechanism to retain characteristics could go here
+                    let writeChar = this.writeCharacteristics.get(characteristicsInfo!.writeUUID);
 
-        if (!writeChar) {
-            const service = await server.getPrimaryService(characteristicsInfo.serviceUUID);
-            writeChar = await service.getCharacteristic(characteristicsInfo.writeUUID);
-            this.writeCharacteristics.set(characteristicsInfo.writeUUID, writeChar);
-        }
+                    if (!writeChar) {
+                        const service = await server.getPrimaryService(characteristicsInfo!.serviceUUID);
+                        writeChar = await service.getCharacteristic(characteristicsInfo!.writeUUID);
+                        this.writeCharacteristics.set(characteristicsInfo!.writeUUID, writeChar);
+                    }
 
-        // `data` may be a subarray view whose `.buffer` is larger than the
-        // payload (offset/length), so copy it into a tight buffer first;
-        // passing the underlying ArrayBuffer would transmit trailing garbage.
-        const payload: Uint8Array = (data.byteOffset === 0 && data.byteLength === data.buffer.byteLength)
-            ? data
-            : data.slice();
+                    // `data` may be a subarray view whose `.buffer` is larger than the
+                    // payload (offset/length), so copy it into a tight buffer first;
+                    // passing the underlying ArrayBuffer would transmit trailing garbage.
+                    const payload: Uint8Array = (data.byteOffset === 0 && data.byteLength === data.buffer.byteLength)
+                        ? data
+                        : data.slice();
 
-        // The transport owns the write mode: it picks it from the
-        // characteristic's own GATT properties, not from a caller-supplied hint.
-        // Prefer write-with-response when the characteristic supports it: it is
-        // the reliable delivery the printer's command/query characteristics
-        // require to actually act on a write. The Marklife INFO service, for
-        // example, only answers queries written with response -- a
-        // write-without-response to its command characteristic is silently
-        // dropped, so battery/name/serial/firmware/hardware all read as nothing.
-        // Fall back to write-without-response for characteristics that only
-        // advertise it. `writeValue` is the deprecated all-rounder kept as a last
-        // resort for browsers that expose neither typed method. This mirrors
-        // exactly what the original BleWebler did with `writeValue`, which is the
-        // proven-working reference for every printer in this driver family.
-        const props = writeChar.properties;
-        const canWriteWithResponse = props ? Boolean(props.write) : true;
-        const canWriteWithoutResponse = props ? Boolean(props.writeWithoutResponse) : true;
-        const targetChar = writeChar as any;
-        if (canWriteWithResponse && typeof targetChar.writeValueWithResponse === 'function') {
-            await targetChar.writeValueWithResponse(payload);
-        } else if (canWriteWithoutResponse && typeof targetChar.writeValueWithoutResponse === 'function') {
-            await targetChar.writeValueWithoutResponse(payload);
-        } else if (typeof targetChar.writeValue === 'function') {
-            await targetChar.writeValue(payload);
-        } else {
-            await targetChar.writeValueWithResponse(payload);
-        }
+                    const targetChar = writeChar as any;
+                    
+                    // Determine write mode: driver hint > cache > auto-detect
+                    const requestedMode = characteristicsInfo!.writeMode;
+                    const cachedMode = this.writeModeCache.get(characteristicsInfo!.writeUUID);
+                    const mode = requestedMode ?? cachedMode ?? 'auto';
+                    
+                    let actualMode: WriteMode;
+                    
+                    if (mode === 'with-response') {
+                        actualMode = 'with-response';
+                    } else if (mode === 'without-response') {
+                        actualMode = 'without-response';
+                    } else {
+                        // Auto-detect: check characteristic properties
+                        const props = writeChar.properties;
+                        const supportsWithoutResponse = props ? Boolean(props.writeWithoutResponse) : false;
+                        const supportsWithResponse = props ? Boolean(props.write) : true;
+                        
+                        if (supportsWithoutResponse && !supportsWithResponse) {
+                            actualMode = 'without-response';
+                        } else if (!supportsWithoutResponse && supportsWithResponse) {
+                            actualMode = 'with-response';
+                        } else {
+                            // Both supported: prefer without-response for performance
+                            actualMode = 'without-response';
+                        }
+                    }
+                    
+                    // Cache the resolved mode for this characteristic
+                    if (requestedMode) {
+                        this.writeModeCache.set(characteristicsInfo!.writeUUID, requestedMode);
+                    } else if (!cachedMode) {
+                        this.writeModeCache.set(characteristicsInfo!.writeUUID, actualMode);
+                    }
+                    
+                    // Execute the write with the determined mode
+                    if (actualMode === 'with-response') {
+                        if (typeof targetChar.writeValueWithResponse === 'function') {
+                            await targetChar.writeValueWithResponse(payload);
+                        } else if (typeof targetChar.writeValue === 'function') {
+                            await targetChar.writeValue(payload);
+                        } else {
+                            throw new Error('No write method available for write-with-response');
+                        }
+                    } else {
+                        // without-response
+                        try {
+                            if (typeof targetChar.writeValueWithoutResponse === 'function') {
+                                await targetChar.writeValueWithoutResponse(payload);
+                            } else if (typeof targetChar.writeValue === 'function') {
+                                await targetChar.writeValue(payload);
+                            } else {
+                                throw new Error('No write method available');
+                            }
+                        } catch (e: any) {
+                            // Fallback to with-response if without-response fails
+                            if (typeof targetChar.writeValueWithResponse === 'function') {
+                                await targetChar.writeValueWithResponse(payload);
+                                this.writeModeCache.set(characteristicsInfo!.writeUUID, 'with-response');
+                            } else if (typeof targetChar.writeValue === 'function') {
+                                await targetChar.writeValue(payload);
+                                this.writeModeCache.set(characteristicsInfo!.writeUUID, 'with-response');
+                            } else {
+                                throw e;
+                            }
+                        }
+                    }
+                    resolve();
+                } catch (error) {
+                    reject(error);
+                } finally {
+                    this.writeQueue.shift();
+                    this.processWriteQueue();
+                }
+            });
+            this.processWriteQueue();
+        });
+    }
+
+    private processWriteQueue(): void {
+        if (this.writeInProgress || this.writeQueue.length === 0) return;
+        this.writeInProgress = true;
+        const operation = this.writeQueue[0];
+        void operation().catch(() => {
+            // Errors are already handled in the operation itself
+        });
     }
 
     /**
@@ -215,5 +295,8 @@ export class UniversalBluetoothTransport extends EventEmitter<TransportEventMap>
         this.primaryServiceUUIDs = undefined;
         this.writeCharacteristics.clear();
         this.notifyCharacteristics.clear();
+        this.writeQueue = [];
+        this.writeInProgress = false;
+        this.writeModeCache.clear();
     }
 }

@@ -42,15 +42,15 @@ export interface IDeviceTransport extends EventEmitter<TransportEventMap> {
      * 
      * @param data The raw data buffer to transmit
      * @param characteristicsInfo Optional configuration indicating which channel to write to.
-     *                            Example: { serviceUUID: string, writeUUID: string }
+     *                            Example: { serviceUUID: string, writeUUID: string, writeMode?: 'with-response' | 'without-response' | 'auto' }
      */
-    write(data: Uint8Array, characteristicsInfo?: any): Promise<void>;
+    write(data: Uint8Array, characteristicsInfo?: { serviceUUID: string; writeUUID: string; writeMode?: 'with-response' | 'without-response' | 'auto' }): Promise<void>;
 
     /**
      * Instructs the transport to begin emitting 'data' events for a specific channel/characteristic.
      * Some transports (like Serial) might ignore this if they emit all received data automatically.
      */
-    startNotifications?(characteristicsInfo?: any): Promise<void>;
+    startNotifications?(characteristicsInfo?: { serviceUUID: string; notifyUUID: string }): Promise<void>;
 
     /**
      * Returns whether the transport is currently connected.

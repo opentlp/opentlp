@@ -69,7 +69,7 @@ describe('UniversalBluetoothTransport', () => {
         await expect(transport.getPrimaryServices()).rejects.toMatchObject({ name: 'NetworkError' });
     });
 
-    it('writes with response when the characteristic supports both write modes', async () => {
+    it('writes without response when the characteristic supports both write modes (prefers performance)', async () => {
         const writeChar = {
             properties: { write: true, writeWithoutResponse: true },
             writeValueWithResponse: vi.fn(async () => {}),
@@ -104,8 +104,8 @@ describe('UniversalBluetoothTransport', () => {
             writeUUID: '00002af0-0000-1000-8000-00805f9b34fb'
         });
 
-        expect(writeChar.writeValueWithResponse).toHaveBeenCalledOnce();
-        expect(writeChar.writeValueWithoutResponse).not.toHaveBeenCalled();
+        expect(writeChar.writeValueWithoutResponse).toHaveBeenCalledOnce();
+        expect(writeChar.writeValueWithResponse).not.toHaveBeenCalled();
     });
 
     it('falls back to writeValueWithoutResponse when the characteristic only supports writeWithoutResponse', async () => {
