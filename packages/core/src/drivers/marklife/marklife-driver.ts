@@ -516,6 +516,9 @@ export class MarklifeDriver implements IPrinterDriver {
                  (m.aliases && (m.aliases as string[]).some(a => deviceName.includes(a.toLowerCase()) || a.toLowerCase().includes(deviceName)))
         );
 
+        // Extract headToCutterPx for use in feed calculations
+        const headToCutterPx = matched?.capabilities.physical?.headToCutterPx;
+
         return {
             maxDensity: 15,
             canvasHeightPx,
@@ -533,12 +536,57 @@ export class MarklifeDriver implements IPrinterDriver {
             mediaDefaults: {
                 feedBeforeMinPx: 0,
                 feedBeforeMaxPx: 100, // or whatever makes sense, say 200
-                feedBeforeDefaultPx: this.uses10FF() ? 40 : 0,
+                // Use model-specific headToCutterPx for default feed before, or 40 for legacy
+                feedBeforeDefaultPx: this.uses10FF() ? (headToCutterPx ?? 40) : 0,
                 feedAfterMinPx: 0,
                 feedAfterMaxPx: 200, // User can override up to a larger amount
-                feedAfterDefaultPx: 40
+                // Use model-specific headToCutterPx for default feed after
+                feedAfterDefaultPx: headToCutterPx ?? 40
             }
         };
+    }
+
+    /**
+     * Get the feed distance in pixels for the current model.
+     * For models with a defined headToCutterPx, use that value.
+     * For legacy path models without a defined cutter distance, use the
+     * original BleWebler defaults (40 for lead feed, 91 for trailing feed).
+     * For modern path models without a defined cutter, use a sensible default.
+     * 
+     * Note: The P12 has headToCutterPx: 66 defined, which should be used for
+     * both lead and trailing feeds to ensure proper alignment.
+     */
+    private getFeedDistancePx(): number {
+        const caps = this.getCapabilities();
+        // If explicitly defined, use it
+        if (caps.physical?.headToCutterPx !== undefined) {
+            return caps.physical.headToCutterPx;
+        }
+        // For legacy path, use 91 to match original BleWebler trailing feed
+        if (this.uses10FF()) {
+            return 91;
+        }
+        // For modern path without defined cutter, use P12 default
+        return 66;
+    }
+
+    /**
+     * Get the lead feed distance in pixels for the current model.
+     * For legacy path, use 40 to match original BleWebler.
+     * For modern path with defined headToCutterPx, use that.
+     */
+    private getLeadFeedPx(): number {
+        const caps = this.getCapabilities();
+        // If explicitly defined, use it
+        if (caps.physical?.headToCutterPx !== undefined) {
+            return caps.physical.headToCutterPx;
+        }
+        // For legacy path, use 40 to match original BleWebler
+        if (this.uses10FF()) {
+            return 40;
+        }
+        // For modern path without defined cutter, use 0 (no lead feed by default)
+        return 0;
     }
 
     private async sendCommand(cmd: Uint8Array): Promise<void> {
@@ -722,6 +770,7 @@ export class MarklifeDriver implements IPrinterDriver {
         const skipAutoAlignStart = options.paper?.type === "continuous" && feedBeforeMm === 0;
 
         if (!skipAutoAlignStart) {
+            // Use alignAuto to position at start of label
             await this.sendCommand(Protocol.alignAuto(0x51));
             await new Promise(r => setTimeout(r, 100)); // wait for move
         }
@@ -808,18 +857,17 @@ export class MarklifeDriver implements IPrinterDriver {
             const feedAfterMm = this.lastOptions?.feedOverrides?.feedAfterMm;
             // The L13 parks the label at the printhead on connect; without a
             // leading feed the image starts at the very top edge of the label.
-            // A 40-dot (~5 mm) lead moves it down, matching the official app's
-            // feed-before positioning. Honoured only on continuous media; gapped
-            // media aligns to the gap instead.
+            // Use model-specific lead feed or 40 for unknown legacy models.
             const beforeDots = typeof feedBeforeMm === 'number'
                 ? this.mmToDots(feedBeforeMm)
-                : (gap ? 0 : 40);
+                : (gap ? 0 : this.getLeadFeedPx());
             const beforeFeed = !gap && beforeDots > 0
                 ? Protocol.feedDots(beforeDots)
                 : new Uint8Array();
             // The after-feed here positions the tail of the label past the
             // printhead; printEnd sends the tear-off purge separately.
-            const afterDots = typeof feedAfterMm === 'number' ? this.mmToDots(feedAfterMm) : 40;
+            // Use model-specific feed distance or 40 for unknown legacy models.
+            const afterDots = typeof feedAfterMm === 'number' ? this.mmToDots(feedAfterMm) : this.getFeedDistancePx();
             const afterFeed = gap
                 ? Protocol.gapAlign()
                 : afterDots > 0 ? Protocol.feedDots(afterDots) : new Uint8Array();
@@ -871,7 +919,7 @@ export class MarklifeDriver implements IPrinterDriver {
             const feedAfterMm = this.lastOptions?.feedOverrides?.feedAfterMm;
             const feedAfterDots = typeof feedAfterMm === "number"
                 ? this.mmToDots(feedAfterMm)
-                : 91;
+                : this.getFeedDistancePx();
             if (feedAfterDots > 0) {
                 await this.sendCommand(Protocol.feedDots(feedAfterDots));
             }
@@ -884,9 +932,9 @@ export class MarklifeDriver implements IPrinterDriver {
         await new Promise(r => setTimeout(r, 200));
 
         // Feed the tape out so it can be torn off. Honour a manual feed-after
-        // override (mm) when supplied; otherwise use the default ~91-dot purge.
+        // override (mm) when supplied; otherwise use the model-specific feed distance.
         const feedAfterMm = this.lastOptions?.feedOverrides?.feedAfterMm;
-        const feedAfterDots = typeof feedAfterMm === "number" ? this.mmToDots(feedAfterMm) : 91;
+        const feedAfterDots = typeof feedAfterMm === "number" ? this.mmToDots(feedAfterMm) : this.getFeedDistancePx();
         if (feedAfterDots > 0) {
             await this.sendCommand(Protocol.feedDots(feedAfterDots));
         }
