@@ -7,11 +7,18 @@ const p12 = {
     physical: { headToCutterPx: 66 },
     mediaDefaults: {
         feedBeforeMinPx: 0, feedBeforeMaxPx: 255, feedBeforeDefaultPx: 0,
-        feedAfterMinPx: 66, feedAfterMaxPx: 255, feedAfterDefaultPx: 132
+        feedAfterMinPx: 66, feedAfterMaxPx: 255, feedAfterDefaultPx: 91
     }
 } as PrinterCapabilities;
 
 describe('continuous cut geometry', () => {
+    it('uses the P12 reference spacing by default without leading feed', () => {
+        expect(resolveContinuousFeed(p12, 'default')).toMatchObject({
+            canBalance: true, beforeDots: 0, afterDots: 91,
+            leadingMarginDots: 66, trailingMarginDots: 25
+        });
+    });
+
     it('balances the margins after accounting for the blank tape before the head', () => {
         expect(resolveContinuousFeed(p12, 'balanced')).toMatchObject({
             canBalance: true, beforeDots: 0, afterDots: 132,

@@ -258,7 +258,10 @@ for (const model of MARKLIFE_HARDWARE_MODELS) {
     model.capabilities.mediaDefaults = {
         feedBeforeMinPx: 0, feedBeforeMaxPx: 255, feedBeforeDefaultPx: 0,
         feedAfterMinPx: offset ?? 0, feedAfterMaxPx: 255,
-        feedAfterDefaultPx: offset !== undefined ? 2 * offset : legacy ? 91 : 66
+        // The original BleWebler P12 print was close to the desired physical
+        // result with one 91-dot trailing feed. Keep that observed spacing as
+        // the P12 default; equal cut margins remain an explicit UI choice.
+        feedAfterDefaultPx: model.model === 'P12' ? 91 : offset !== undefined ? 2 * offset : legacy ? 91 : 66
     };
 }
 

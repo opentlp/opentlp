@@ -286,6 +286,7 @@
                 <label class="opt">
                     Cut margins
                     <select bind:value={editor.printFeedMode}>
+                        <option value="default">Default spacing</option>
                         <option value="balanced">Equal margins</option>
                         <option value="minimum">Minimum tape</option>
                         <option value="custom">Custom feed</option>

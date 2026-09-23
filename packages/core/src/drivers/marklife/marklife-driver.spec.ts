@@ -267,7 +267,7 @@ describe('MarklifeDriver', () => {
         await driver.bindTransport(transport);
         expect(driver.getCapabilities().driverName).toBe('Marklife (0x1F)');
         expect(driver.getCapabilities().mediaDefaults).toMatchObject({
-            feedBeforeDefaultPx: 0, feedAfterMinPx: 66, feedAfterDefaultPx: 132
+            feedBeforeDefaultPx: 0, feedAfterMinPx: 66, feedAfterDefaultPx: 91
         });
         expect(MARKLIFE_HARDWARE_MODELS.find(model => model.model === 'P12')?.capabilities.mediaDefaults)
             .toEqual(driver.getCapabilities().mediaDefaults);
@@ -282,7 +282,7 @@ describe('MarklifeDriver', () => {
         transport.clearWrites();
         await driver.printEnd();
         expect(transport.writes.map(write => [...write])).toEqual([
-            [0x1b, 0x4a, 132],
+            [0x1b, 0x4a, 91],
             [0x1f, 0xc0, 0x01, 0x01],
             [0x10, 0xff, 0xf1, 0x45]
         ]);

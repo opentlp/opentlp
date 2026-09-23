@@ -1,6 +1,6 @@
 import type { PrinterCapabilities } from 'universal-label-core';
 
-export type ContinuousFeedMode = 'balanced' | 'minimum' | 'custom';
+export type ContinuousFeedMode = 'default' | 'balanced' | 'minimum' | 'custom';
 
 /** Commanded feed and the resulting margins of a cut continuous label. */
 export function resolveContinuousFeed(
@@ -29,7 +29,8 @@ export function resolveContinuousFeed(
 
     const beforeDots = hasBefore ? clamp(
         selected === 'custom' && customBeforeMm !== undefined && Number.isFinite(customBeforeMm)
-            ? customBeforeMm * dpmm : selected === 'custom' ? defaults.feedBeforeDefaultPx! : beforeMin,
+            ? customBeforeMm * dpmm
+            : selected === 'balanced' || selected === 'minimum' ? beforeMin : defaults.feedBeforeDefaultPx!,
         beforeMin, beforeMax
     ) : undefined;
     const afterDots = hasAfter ? clamp(
