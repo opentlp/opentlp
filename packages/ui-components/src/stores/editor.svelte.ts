@@ -199,6 +199,7 @@ export class EditorStore {
 
     printFeedBeforeMm = $state<number | undefined>(undefined);
     printFeedAfterMm = $state<number | undefined>(undefined);
+    printFeedMode = $state<'balanced' | 'minimum' | 'custom'>('balanced');
     showAdvancedFeedingPreview = $state(false);
 
     systemFonts = $state<string[]>([...DEFAULT_SYSTEM_FONTS]);

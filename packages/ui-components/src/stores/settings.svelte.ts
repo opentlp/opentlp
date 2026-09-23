@@ -52,8 +52,8 @@ export { AUTO_APP_PROFILES };
 
 
 export const DEFAULT_PRINTER_CAPS: Record<string, any> = {
-    'none': { canvasHeightPx: 384, dpmm: 8, physical: { headToCutterPx: 100 } },
-    'unknown': { canvasHeightPx: 384, dpmm: 8, physical: { headToCutterPx: 100 } }
+    'none': { canvasHeightPx: 384, dpmm: 8, physical: {} },
+    'unknown': { canvasHeightPx: 384, dpmm: 8, physical: {} }
 };
 
 for (const profile of PRINTER_PROFILES) {

@@ -19,6 +19,7 @@
         type ReportKind
     } from '../reporting/report';
     import Icon from './Icon.svelte';
+    import { resolveContinuousFeed } from '../printer/continuous-feed';
 
     interface Props {
         session: PrinterSession;
@@ -76,6 +77,7 @@
         caps?.mediaDefaults?.feedAfterMinPx !== undefined && 
         caps.mediaDefaults.feedAfterMinPx === caps.mediaDefaults.feedAfterMaxPx
     );
+    const feedPlan = $derived(resolveContinuousFeed(caps, editor.printFeedMode, editor.printFeedBeforeMm, editor.printFeedAfterMm));
 
     const printableHeightPx = $derived(caps
         ? Math.min(caps.canvasHeightPx, Math.round(activePaper.tapeWidthMm * caps.dpmm))
@@ -136,9 +138,9 @@
                 density,
                 copies: requestedCopies,
                 ...(caps?.supportsSpeedMode ? { speed } : {}),
-                ...(activePaper.type === 'continuous' ? { feedOverrides: { 
-                    feedBeforeMm: typeof editor.printFeedBeforeMm === 'number' ? editor.printFeedBeforeMm : undefined, 
-                    feedAfterMm: typeof editor.printFeedAfterMm === 'number' ? editor.printFeedAfterMm : undefined 
+                ...(activePaper.type === 'continuous' ? { feedOverrides: {
+                    feedBeforeMm: feedPlan.beforeDots !== undefined ? feedPlan.beforeDots / caps!.dpmm : undefined,
+                    feedAfterMm: feedPlan.afterDots !== undefined ? feedPlan.afterDots / caps!.dpmm : undefined
                 } } : {})
             };
             for (let i = 0; i < requestedCopies; i++) {
@@ -280,33 +282,54 @@
             {/if}
         </div>
         {#if activePaper.type === 'continuous'}
+            {#if feedPlan.canBalance}
+                <label class="opt">
+                    Cut margins
+                    <select bind:value={editor.printFeedMode}>
+                        <option value="balanced">Equal margins</option>
+                        <option value="minimum">Minimum tape</option>
+                        <option value="custom">Custom feed</option>
+                    </select>
+                </label>
+                <div class="hint">Expected white margin: {(feedPlan.leadingMarginDots / caps.dpmm).toFixed(1)} mm before, {(feedPlan.trailingMarginDots / caps.dpmm).toFixed(1)} mm after print. Approximate cut length: {((editor.design.widthPx + feedPlan.leadingMarginDots + feedPlan.trailingMarginDots) / caps.dpmm).toFixed(1)} mm. Assumes tape starts at the cutter.</div>
+            {/if}
+            {#if caps.mediaDefaults?.feedBeforeDefaultPx !== undefined || caps.mediaDefaults?.feedAfterDefaultPx !== undefined}
             <details class="advanced" bind:open={editor.showAdvancedFeedingPreview}>
                 <summary>Advanced feeding options</summary>
                 <div class="row">
+                    {#if caps.mediaDefaults?.feedBeforeDefaultPx !== undefined}
                     <label class="opt" title="Distance to feed before printing starts">
                         Feed Before (mm)
                         <input 
                             type="number" 
+                            step="0.1"
                             min={caps.mediaDefaults?.feedBeforeMinPx !== undefined ? (caps.mediaDefaults.feedBeforeMinPx / caps.dpmm).toFixed(1) : 0}
                             max={caps.mediaDefaults?.feedBeforeMaxPx !== undefined ? (caps.mediaDefaults.feedBeforeMaxPx / caps.dpmm).toFixed(1) : 100}
                             bind:value={editor.printFeedBeforeMm} 
-                            disabled={enforcesFeedBefore}
+                            disabled={enforcesFeedBefore || (feedPlan.canBalance && editor.printFeedMode !== 'custom')}
                             placeholder={caps.mediaDefaults?.feedBeforeDefaultPx !== undefined ? (caps.mediaDefaults.feedBeforeDefaultPx / caps.dpmm).toFixed(1) : "0"} 
                         />
                     </label>
+                    {/if}
+                    {#if caps.mediaDefaults?.feedAfterDefaultPx !== undefined}
                     <label class="opt" title="Distance to feed after printing ends (for tearing/cutting)">
                         Feed After (mm)
                         <input 
                             type="number" 
-                            min={caps.mediaDefaults?.feedAfterMinPx !== undefined ? (caps.mediaDefaults.feedAfterMinPx / caps.dpmm).toFixed(1) : 0}
+                            step="0.1"
+                            min={(Math.max(caps.physical?.headToCutterPx ?? 0, caps.mediaDefaults?.feedAfterMinPx ?? 0) / caps.dpmm).toFixed(1)}
                             max={caps.mediaDefaults?.feedAfterMaxPx !== undefined ? (caps.mediaDefaults.feedAfterMaxPx / caps.dpmm).toFixed(1) : 100}
                             bind:value={editor.printFeedAfterMm} 
-                            disabled={enforcesFeedAfter}
+                            disabled={enforcesFeedAfter || (feedPlan.canBalance && editor.printFeedMode !== 'custom')}
                             placeholder={caps.mediaDefaults?.feedAfterDefaultPx !== undefined ? (caps.mediaDefaults.feedAfterDefaultPx / caps.dpmm).toFixed(1) : "0"} 
                         />
                     </label>
+                    {/if}
                 </div>
             </details>
+            {:else}
+                <div class="hint">This printer does not expose adjustable continuous feed.</div>
+            {/if}
         {/if}
         <button
             class="primary print"

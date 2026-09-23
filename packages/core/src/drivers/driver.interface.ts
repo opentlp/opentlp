@@ -164,7 +164,7 @@ export interface PrinterCapabilities {
     driverName?: string;
     /** Physical geometry of the printer mechanism */
     physical?: {
-        /** Distance from the print head to the cutter in dots/pixels. Used to visualize how far the tape must push out to be cut. */
+        /** Measured printhead-to-cutter distance in dots. A fresh cut edge already has this much blank tape before the first printable dot. */
         headToCutterPx?: number;
         /** Supported physical paper/media widths in millimeters. Can be a single width or a min/max range. */
         supportedMediaWidthsMm?: number | { min: number; max: number };
@@ -175,18 +175,18 @@ export interface PrinterCapabilities {
      * If the printer cannot auto-detect these, they serve as sensible defaults for the UI.
      */
     mediaDefaults?: {
-        /** Minimum feed before printing starts (continuous only) in dots/pixels */
+        /** Minimum commanded feed before the raster (continuous only), excluding the physical head-to-cutter distance. */
         feedBeforeMinPx?: number;
         /** Maximum feed before printing starts (continuous only) in dots/pixels */
         feedBeforeMaxPx?: number;
-        /** Default feed before printing starts in dots/pixels */
+        /** Default commanded feed before the raster in dots. */
         feedBeforeDefaultPx?: number;
 
-        /** Minimum feed after printing ends (continuous only) in dots/pixels */
+        /** Minimum commanded feed after the raster in dots; cutter models need at least headToCutterPx to reach a clean cut. */
         feedAfterMinPx?: number;
         /** Maximum feed after printing ends (continuous only) in dots/pixels */
         feedAfterMaxPx?: number;
-        /** Default feed after printing ends in dots/pixels */
+        /** Default commanded feed after the raster in dots; the cut label's trailing margin is this minus headToCutterPx. */
         feedAfterDefaultPx?: number;
     };
 }

@@ -12,6 +12,7 @@
     import Icon from './Icon.svelte';
     import { DEFAULT_PAPER_PROFILES } from 'universal-label-core';
     import { globalSettings as settings, DEFAULT_PRINTER_CAPS } from '../stores/settings.svelte';
+    import { resolveContinuousFeed } from '../printer/continuous-feed';
 
     interface Props {
         editor: EditorStore;
@@ -77,26 +78,14 @@
     const tapeGapMm = $derived(Math.max(0, paper.tapeWidthMm - (paper.labelWidthMm || paper.tapeWidthMm)) / 2);
     const tapeGapPx = $derived(tapeGapMm * (caps?.dpmm || 8) * scale);
     
-    const feedBefore = $derived(
-        paper.type === 'continuous' 
-        ? ((typeof editor.printFeedBeforeMm === 'number'
-            ? (editor.printFeedBeforeMm * (caps?.dpmm || 8)) 
-            : (caps?.mediaDefaults?.feedBeforeDefaultPx || 0)) * scale) 
-        : 0
-    );
-    const feedAfter = $derived(
-        paper.type === 'continuous' 
-        ? ((typeof editor.printFeedAfterMm === 'number'
-            ? (editor.printFeedAfterMm * (caps?.dpmm || 8)) 
-            : (caps?.mediaDefaults?.feedAfterDefaultPx || 0)) * scale) 
-        : 0
-    );
-    const cutterOffset = $derived((caps?.physical?.headToCutterPx || 0) * scale);
+    const feedPlan = $derived(resolveContinuousFeed(caps, editor.printFeedMode, editor.printFeedBeforeMm, editor.printFeedAfterMm));
+    const leadingMargin = $derived(paper.type === 'continuous' ? feedPlan.leadingMarginDots * scale : 0);
+    const trailingMargin = $derived(paper.type === 'continuous' ? feedPlan.trailingMarginDots * scale : 0);
 
     let stripWidth = $state(0);
     const mockupWidthPx = $derived.by(() => {
         const labelW = editor.design.widthPx * scale;
-        const tapeW = isGap ? gapWidth + labelW + gapWidth : feedAfter + labelW + feedBefore + cutterOffset;
+        const tapeW = isGap ? gapWidth + labelW + gapWidth : leadingMargin + labelW + trailingMargin;
         return (editor.showAdvancedFeedingPreview ? 0 : 80) + tapeW;
     });
     
@@ -231,7 +220,7 @@
                 <div class="tape-viewport" class:advanced-mode={editor.showAdvancedFeedingPreview}>
                     <!-- Tape always starts exactly behind the lip/cutter (-100%) -->
                     <div class="tape" class:is-gap={isGap} class:no-anim={isReplaying} style="--start-x: -100%; {isGap && tapeGapPx > 0 ? `padding: ${tapeGapPx}px 0;` : ''}">
-                        <div class="tape-excess left" style="width: {isGap ? gapWidth : feedAfter}px;" class:is-gap={isGap}></div>
+                        <div class="tape-excess left" style="width: {isGap ? gapWidth : leadingMargin}px;" class:is-gap={isGap}></div>
                         
                         <!-- The canvas is masked to the paper's die line; an
                              additional border radius would clip a second shape. -->
@@ -239,7 +228,7 @@
                             <canvas bind:this={canvas} style="height: {editor.design.heightPx * scale}px;"></canvas>
                         </div>
                         
-                        <div class="tape-excess right" style="width: {isGap ? gapWidth : feedBefore + cutterOffset}px;" class:is-gap={isGap}></div>
+                        <div class="tape-excess right" style="width: {isGap ? gapWidth : trailingMargin}px;" class:is-gap={isGap}></div>
                     </div>
                 </div>
 
@@ -247,32 +236,14 @@
                 {#if editor.showAdvancedFeedingPreview}
                     <div class="dimensions-layer">
                         
-                        <!-- Print Head Marker -->
-                        <div class="tech-marker print-head" style="left: 0;">
-                            <div class="pointer-up"></div>
-                            <div class="tech-label">PRINT HEAD</div>
-                        </div>
-
-                        <!-- Feed After Dimension -->
-                        {#if !isGap && feedAfter > 0}
-                            <div class="tech-dimension" style="left: 0; width: {feedAfter}px;">
-                                <div class="dim-text">FEED AFTER</div>
+                        {#if !isGap && leadingMargin > 0}
+                            <div class="tech-dimension" style="left: 0; width: {leadingMargin}px;">
+                                <div class="dim-text">BEFORE PRINT</div>
                             </div>
                         {/if}
-
-                        <!-- Cutter Marker -->
-                        {#if cutterOffset > 0}
-                            <div class="tech-marker cutter" style="left: {cutterOffset}px;">
-                                <div class="cut-line"></div>
-                                <div class="pointer-up"></div>
-                                <div class="tech-label">CUTTER</div>
-                            </div>
-                        {/if}
-
-                        <!-- Feed Before Dimension -->
-                        {#if !isGap && feedBefore > 0}
-                            <div class="tech-dimension" style="right: 0; width: {feedBefore}px;">
-                                <div class="dim-text">FEED BEFORE</div>
+                        {#if !isGap && trailingMargin > 0}
+                            <div class="tech-dimension" style="right: 0; width: {trailingMargin}px;">
+                                <div class="dim-text">AFTER PRINT</div>
                             </div>
                         {/if}
                         
@@ -458,53 +429,6 @@
         pointer-events: none;
         z-index: 10;
     }
-    .tech-marker {
-        position: absolute;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        transform: translateX(-50%);
-    }
-    .print-head {
-        bottom: -20px;
-    }
-    .pointer-up {
-        width: 0; height: 0;
-        border-left: 5px solid transparent;
-        border-right: 5px solid transparent;
-        border-bottom: 6px solid #10b981;
-    }
-    .tech-marker .tech-label {
-        font-family: monospace;
-        font-size: 9px;
-        margin-top: 4px;
-        font-weight: 600;
-        background: rgba(255, 255, 255, 0.9);
-        padding: 1px 3px;
-        border-radius: 2px;
-    }
-    .print-head .tech-label { color: #10b981; }
-
-    .cutter {
-        top: -10px;
-        bottom: -20px;
-        justify-content: flex-end;
-    }
-    .cutter .pointer-up {
-        border-bottom-color: #ef4444;
-    }
-    .cutter .tech-label {
-        color: #ef4444;
-    }
-    .cutter .cut-line {
-        position: absolute;
-        top: 0;
-        bottom: 20px; /* leaves room for pointer and label */
-        left: 50%;
-        width: 1px;
-        border-left: 1px dashed #ef4444;
-    }
-
     .tech-dimension {
         position: absolute;
         bottom: -35px; /* Position of the horizontal dimension line */

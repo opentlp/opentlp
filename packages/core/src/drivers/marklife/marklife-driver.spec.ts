@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import EventEmitter from 'eventemitter3';
-import { MarklifeDriver } from './marklife-driver';
+import { MarklifeDriver, MARKLIFE_HARDWARE_MODELS } from './marklife-driver';
 import type { IDeviceTransport, TransportEventMap } from '../../core/transports/transport.interface';
 import { monoPage } from '../../types/ink';
 
@@ -200,7 +200,7 @@ describe('MarklifeDriver', () => {
         expect([...job.slice(-4)]).toEqual([0x10, 0xff, 0xf1, 0x45]);
     });
 
-    it('feeds a default lead and tail on the L13 legacy path with no overrides', async () => {
+    it('feeds the L13 legacy job once after raster, with no default lead', async () => {
         const transport = new MockTransport('L13_81E0_BLE');
         await driver.bindTransport(transport);
         await driver.printInit({
@@ -214,16 +214,14 @@ describe('MarklifeDriver', () => {
         await driver.printPage(monoPage(image));
 
         const job = transport.writes[0];
-        // After wakeup(15) + startJob(4, enable=0x03) comes a default 40-dot
-        // lead feed: 1B 4A 28.
+        // After wakeup and startJob, raster begins immediately.
         expect([...job.slice(15, 19)]).toEqual([0x10, 0xff, 0xf1, 0x03]);
-        expect([...job.slice(19, 22)]).toEqual([0x1b, 0x4a, 0x28]);
+        expect([...job.slice(19, 23)]).toEqual([0x1d, 0x76, 0x30, 0x00]);
+        expect([...job.slice(-7, -4)]).toEqual([0x1b, 0x4a, 0x5b]);
 
-        // printEnd sends a trailing tear-off purge (default 91 dots = 0x5B).
         transport.clearWrites();
         await driver.printEnd();
-        const endWrite = transport.writes.find(w => w[0] === 0x1b && w[1] === 0x4a);
-        expect(endWrite && endWrite[2]).toBe(0x5b);
+        expect(transport.writes).toHaveLength(0);
     });
 
     it('assembles the LP90 legacy job and honours continuous feed overrides', async () => {
@@ -261,7 +259,67 @@ describe('MarklifeDriver', () => {
         const endPromise = driver.printEnd();
         await endPromise;
 
-        expect(transport.write).toHaveBeenCalledTimes(4); // purge, stop, alternate stop, auto pos
+        expect(transport.write).toHaveBeenCalledTimes(3); // continuous: feed, stop, alternate stop
+    });
+
+    it('keeps P12 on 1F and uses explicit feeds without continuous alignment', async () => {
+        const transport = new MockTransport('P12_AB12_BLE');
+        await driver.bindTransport(transport);
+        expect(driver.getCapabilities().driverName).toBe('Marklife (0x1F)');
+        expect(driver.getCapabilities().mediaDefaults).toMatchObject({
+            feedBeforeDefaultPx: 0, feedAfterMinPx: 66, feedAfterDefaultPx: 132
+        });
+        expect(MARKLIFE_HARDWARE_MODELS.find(model => model.model === 'P12')?.capabilities.mediaDefaults)
+            .toEqual(driver.getCapabilities().mediaDefaults);
+
+        const paper = { id: 'continuous', name: 'Continuous', type: 'continuous' as const, tapeWidthMm: 15 };
+        await driver.printInit({ paper, density: 8, copies: 1 });
+        expect(transport.writes.some(write => [...write].join(',') === '31,17,81')).toBe(false);
+        expect(transport.writes.some(write => [...write].join(',') === '31,128,1,16')).toBe(true);
+        transport.clearWrites();
+        const image = { data: new Uint8Array(2 * 96 * 4).fill(255), width: 2, height: 96 };
+        await driver.printPage(monoPage(image));
+        transport.clearWrites();
+        await driver.printEnd();
+        expect(transport.writes.map(write => [...write])).toEqual([
+            [0x1b, 0x4a, 132],
+            [0x1f, 0xc0, 0x01, 0x01],
+            [0x10, 0xff, 0xf1, 0x45]
+        ]);
+
+        transport.clearWrites();
+        await driver.printInit({ paper, density: 8, copies: 1,
+            feedOverrides: { feedBeforeMm: 1, feedAfterMm: 2 } });
+        expect(transport.writes.some(write => [...write].join(',') === '27,74,8')).toBe(true);
+        expect(transport.writes.some(write => [...write].join(',') === '31,17,81')).toBe(false);
+        transport.clearWrites();
+        await driver.printEnd();
+        expect([...transport.writes[0]]).toEqual([0x1b, 0x4a, 66]);
+
+        transport.clearWrites();
+        await driver.printInit({ paper: { ...paper, type: 'gap' }, density: 8, copies: 1 });
+        expect(transport.writes.some(write => [...write].join(',') === '31,17,81')).toBe(true);
+        transport.clearWrites();
+        await driver.printEnd();
+        expect(transport.writes.some(write => [...write].join(',') === '31,17,80')).toBe(true);
+    });
+
+    it('uses sensor alignment only for gap stock on the 1F family', async () => {
+        const transport = new MockTransport('P50_Test');
+        await driver.bindTransport(transport);
+        const paper = { id: 'continuous', name: 'Continuous', type: 'continuous' as const, tapeWidthMm: 48 };
+        await driver.printInit({ paper, density: 8, copies: 1 });
+        expect(transport.writes.some(write => write[0] === 0x1f && write[1] === 0x11)).toBe(false);
+        transport.clearWrites();
+        await driver.printEnd();
+        expect(transport.writes.some(write => write[0] === 0x1f && write[1] === 0x11)).toBe(false);
+
+        transport.clearWrites();
+        await driver.printInit({ paper: { ...paper, type: 'gap' }, density: 8, copies: 1 });
+        expect(transport.writes.some(write => [...write].join(',') === '31,17,81')).toBe(true);
+        transport.clearWrites();
+        await driver.printEnd();
+        expect(transport.writes.some(write => [...write].join(',') === '31,17,80')).toBe(true);
     });
 
     it('prints on Serial transport without waiting for flow-control credits', async () => {

@@ -106,6 +106,7 @@ describe('PeriPageDriver', () => {
         const driver = new PeriPageDriver();
         expect(driver.getCapabilities().canvasHeightPx).toBe(384);
         expect(driver.getCapabilities().dpmm).toBe(8);
+        expect(driver.getCapabilities().mediaDefaults).toMatchObject({ feedAfterDefaultPx: 72, feedAfterMaxPx: 255 });
 
         // A6+ BLE form
         const transportA6Plus = new MockDeviceTransport('PeriPage+9B34');

@@ -168,6 +168,16 @@ export const PERIPAGE_MODELS: PrinterModelProfile[] = [
     PERIPAGE_P21_HD_PROFILE,
 ];
 
+// This driver accepts a trailing ESC J feed. Advertise only that control so
+// the print panel exposes it without implying a configurable leading margin.
+for (const model of PERIPAGE_MODELS) {
+    model.capabilities.mediaDefaults = {
+        feedAfterMinPx: 0,
+        feedAfterMaxPx: 255,
+        feedAfterDefaultPx: 0x48
+    };
+}
+
 /**
  * Checks if a device name indicates a compressed or incompatible protocol variant
  * that MUST NOT be handled by this raw raster driver.
