@@ -262,7 +262,7 @@ describe('MarklifeDriver', () => {
         expect(transport.write).toHaveBeenCalledTimes(3); // continuous: feed, stop, alternate stop
     });
 
-    it('keeps P12 on 1F and uses explicit feeds without continuous alignment', async () => {
+    it.each([2, 80, 258])('sends a P12 raw raster with exactly %i feed rows', async (width) => {
         const transport = new MockTransport('P12_AB12_BLE');
         await driver.bindTransport(transport);
         expect(driver.getCapabilities().driverName).toBe('Marklife (0x1F)');
@@ -273,35 +273,118 @@ describe('MarklifeDriver', () => {
             .toEqual(driver.getCapabilities().mediaDefaults);
 
         const paper = { id: 'continuous', name: 'Continuous', type: 'continuous' as const, tapeWidthMm: 15 };
-        await driver.printInit({ paper, density: 8, copies: 1 });
-        expect(transport.writes.some(write => [...write].join(',') === '31,17,81')).toBe(false);
-        expect(transport.writes.some(write => [...write].join(',') === '31,128,1,16')).toBe(true);
+        await driver.printInit({ paper, density: 8, speed: 2, copies: 1 });
+        // Protocol 4 uses module density; no media selection or sensor alignment.
+        expect(transport.writes.map(write => [...write])).toEqual([[0x10, 0xff, 0x10, 0x00, 0x06]]);
         transport.clearWrites();
+
+        const data = new Uint8Array(width * 96 * 4).fill(255);
+        data.fill(0, 0, 3); // first column, top of the horizontal preview
+        const lastPixel = ((96 - 1) * width + width - 1) * 4;
+        data.fill(0, lastPixel, lastPixel + 3); // last column, bottom
+        await driver.printPage(monoPage({ data, width, height: 96 }));
+
+        // Independent bytes pin rotation, bit order and dimensions. P12 has no
+        // deflate stream or padding to a minimum label length.
+        const bitmap = new Array(width * 12).fill(0);
+        bitmap[11] = 0x01;
+        bitmap[(width - 1) * 12] = 0x80;
+        expect(transport.writes.flatMap(write => [...write])).toEqual([
+            0, 0, 0, 0, 0, 0,
+            0x1f, 0xc0, 0x01, 0x00,
+            0x1d, 0x76, 0x30, 0x00, 0x0c, 0x00, width & 0xff, width >> 8,
+            ...bitmap,
+            0x1b, 0x4a, 91,
+            0x1f, 0xc0, 0x01, 0x01
+        ]);
+        transport.clearWrites();
+        await driver.printEnd();
+        expect(transport.writes).toHaveLength(0);
+    });
+
+    it.each([
+        [0, 0, 0, 66],
+        [1, 2, 8, 66],
+        [2, 20, 16, 160],
+        [100, 100, 255, 255],
+        [NaN, Infinity, 0, 91]
+    ])('honours P12 feed overrides (%s, %s mm) once per page', async (before, after, beforeDots, afterDots) => {
+        const transport = new MockTransport('P12_AB12_BLE');
+        await driver.bindTransport(transport);
+        await driver.printInit({
+            paper: { id: 'continuous', name: 'Continuous', type: 'continuous', tapeWidthMm: 15 },
+            copies: 2,
+            density: 0,
+            feedOverrides: { feedBeforeMm: before, feedAfterMm: after }
+        });
+        expect(transport.writes).toHaveLength(0);
+
+        const image = { data: new Uint8Array(2 * 96 * 4).fill(255), width: 2, height: 96 };
+        const expectedPage = [
+            0, 0, 0, 0, 0, 0, 0x1f, 0xc0, 0x01, 0x00,
+            ...(beforeDots ? [0x1b, 0x4a, beforeDots] : []),
+            0x1d, 0x76, 0x30, 0x00, 0x0c, 0x00, 0x02, 0x00,
+            ...new Array(24).fill(0),
+            0x1b, 0x4a, afterDots,
+            0x1f, 0xc0, 0x01, 0x01
+        ];
+        await driver.printPage(monoPage(image));
+        await driver.printPage(monoPage(image));
+        await driver.printEnd();
+        expect(transport.writes.flatMap(write => [...write])).toEqual([...expectedPage, ...expectedPage]);
+    });
+
+    it('uses the selected P12 protocol on serial with an anonymous device name', async () => {
+        const transport = new MockTransport('/dev/rfcomm0');
+        transport.type = 'Serial-WebSerial';
+        const selectedDriver = new MarklifeDriver('0x1f');
+        selectedDriver.setModel('marklife_p12');
+        await selectedDriver.bindTransport(transport);
+        await selectedDriver.printInit({ copies: 1, density: 0 });
+        const image = { data: new Uint8Array(2 * 96 * 4).fill(255), width: 2, height: 96 };
+        await selectedDriver.printPage(monoPage(image));
+        await selectedDriver.printEnd();
+        expect(transport.writes.flatMap(write => [...write])).toEqual([
+            0, 0, 0, 0, 0, 0, 0x1f, 0xc0, 0x01, 0x00,
+            0x1d, 0x76, 0x30, 0x00, 0x0c, 0x00, 0x02, 0x00,
+            ...new Array(24).fill(0),
+            0x1b, 0x4a, 91, 0x1f, 0xc0, 0x01, 0x01
+        ]);
+    });
+
+    it.each(['P12', 'P12PRO', 'Marklife P12', 'P12_AB12_BLE'])(
+        'recognises the manufacturer P12 name prefix in %s', async (name) => {
+            const transport = new MockTransport(name);
+            await driver.bindTransport(transport);
+            expect(driver.getCapabilities().canvasHeightPx).toBe(96);
+            await driver.printInit({ copies: 1, density: 0 });
+            await driver.printPage(monoPage({
+                data: new Uint8Array(2 * 96 * 4).fill(255), width: 2, height: 96
+            }));
+            expect(transport.writes.flatMap(write => [...write]).slice(0, 14)).toEqual([
+                0, 0, 0, 0, 0, 0, 0x1f, 0xc0, 0x01, 0x00, 0x1d, 0x76, 0x30, 0x00
+            ]);
+        }
+    );
+
+    it('positions each P12 gap label with GS FF and ignores continuous feed overrides', async () => {
+        const transport = new MockTransport('P12_AB12_BLE');
+        await driver.bindTransport(transport);
+        await driver.printInit({
+            paper: { id: 'gap', name: 'Gap', type: 'gap', tapeWidthMm: 15 },
+            copies: 1,
+            density: 0,
+            feedOverrides: { feedBeforeMm: 10, feedAfterMm: 20 }
+        });
         const image = { data: new Uint8Array(2 * 96 * 4).fill(255), width: 2, height: 96 };
         await driver.printPage(monoPage(image));
-        transport.clearWrites();
         await driver.printEnd();
-        expect(transport.writes.map(write => [...write])).toEqual([
-            [0x1b, 0x4a, 91],
-            [0x1f, 0xc0, 0x01, 0x01],
-            [0x10, 0xff, 0xf1, 0x45]
+        expect(transport.writes.flatMap(write => [...write])).toEqual([
+            0, 0, 0, 0, 0, 0, 0x1f, 0xc0, 0x01, 0x00,
+            0x1d, 0x76, 0x30, 0x00, 0x0c, 0x00, 0x02, 0x00,
+            ...new Array(24).fill(0),
+            0x1d, 0x0c, 0x1f, 0xc0, 0x01, 0x01
         ]);
-
-        transport.clearWrites();
-        await driver.printInit({ paper, density: 8, copies: 1,
-            feedOverrides: { feedBeforeMm: 1, feedAfterMm: 2 } });
-        expect(transport.writes.some(write => [...write].join(',') === '27,74,8')).toBe(true);
-        expect(transport.writes.some(write => [...write].join(',') === '31,17,81')).toBe(false);
-        transport.clearWrites();
-        await driver.printEnd();
-        expect([...transport.writes[0]]).toEqual([0x1b, 0x4a, 66]);
-
-        transport.clearWrites();
-        await driver.printInit({ paper: { ...paper, type: 'gap' }, density: 8, copies: 1 });
-        expect(transport.writes.some(write => [...write].join(',') === '31,17,81')).toBe(true);
-        transport.clearWrites();
-        await driver.printEnd();
-        expect(transport.writes.some(write => [...write].join(',') === '31,17,80')).toBe(true);
     });
 
     it('uses sensor alignment only for gap stock on the 1F family', async () => {
@@ -321,6 +404,19 @@ describe('MarklifeDriver', () => {
         await driver.printEnd();
         expect(transport.writes.some(write => [...write].join(',') === '31,17,80')).toBe(true);
     });
+
+    it.each([['P50_Test', 384], ['P80_Test', 576]] as const)(
+        'keeps the compressed raster on %s', async (name, height) => {
+            const transport = new MockTransport(name);
+            await driver.bindTransport(transport);
+            await driver.printPage(monoPage({
+                data: new Uint8Array(2 * height * 4).fill(255), width: 2, height
+            }));
+            const bytes = transport.writes.flatMap(write => [...write]);
+            expect(bytes.slice(0, 6)).toEqual([0x1f, 0x10, 0, height / 8, 0, 2]);
+            expect(bytes.slice(10, 12)).toEqual([0x28, 0x91]);
+        }
+    );
 
     it('prints on Serial transport without waiting for flow-control credits', async () => {
         class MockSerialTransport extends EventEmitter<TransportEventMap> implements IDeviceTransport {

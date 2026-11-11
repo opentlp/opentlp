@@ -10,6 +10,27 @@ redistributed in this repository. When a reference has a copyleft licence, only
 uncopyrightable protocol facts and public documentation are used; its source
 code is not copied into BleWebler2.
 
+## Marklife P12 raw raster / protocol 4
+
+Implementation: `packages/core/src/drivers/marklife`
+
+| Reference | Revision/licence | Facts used |
+| --- | --- | --- |
+| [Marklife Android app](https://apkpure.net/marklife/com.feioou.deliprint.yxq) | package `com.feioou.deliprint.yxq`, version 2.13.4; APK SHA-256 `b8e5ecdae1a19104b3625f9c6c7043a99df4a9ad4b3138b6c02520cb8e8fb350`; proprietary | Local decompilation of `classes3.dex`: `factory.device.impl.P12` selects protocol 4. `factory.protocol.P12Protocol` specifies uncompressed `GS v 0`, little-endian dimensions, one trailing `ESC J` feed for continuous stock or `GS FF` for gap stock. `factory.protocol.BaseProtocol` supplies six zero wake-up bytes, `1F C0 01 00` / `1F C0 01 01` job control and module density (`10 FF 10 00 n`). Its media-type, speed and auto-position commands do not apply to protocol 4. Protocol facts only; no application source or assets included. |
+| [Original BleWebler P12 driver](https://github.com/josb25/BleWebler/blob/6da507368ecc76507fa0ae2178696ca7c04c13b7/js/marklife_p12.js) | `6da5073`, MIT | Independently confirms raw `GS v 0`, 12 bytes per row, one row per horizontal design column, and a single 91-dot trailing feed; uses the older `10 FF F1` job control. |
+
+The P12 keeps its existing `marklife-0x1f` driver ID because its job control
+starts with `1F`; that does not imply the compressed `1F 10` raster used by
+wider models. Each page carries its own wake-up, start, raw raster, positioning
+and stop. `printEnd` adds no second feed or sensor alignment.
+
+The Android app's fixed continuous tail is 100 dots. OpenTLP retains its
+existing 91-dot default from BleWebler and its explicit feed overrides; the
+default is not a claim about the Android app. The 66-dot cutter distance and
+continuous preview geometry are unchanged. Regression vectors cover short and
+multi-byte row counts, asymmetric pixels, repeated pages, gap stock and serial
+model selection. Physical cut placement still requires a P12 print check.
+
 ## Catprinter / Tiny `51 78`
 
 Implementation: `packages/core/src/drivers/catprinter-tiny`

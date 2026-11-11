@@ -395,6 +395,13 @@ export class MarklifeDriver implements IPrinterDriver {
         );
     }
 
+    /** P12 combines 1F job control with raw GS v 0, not compressed 1F 10. */
+    private usesP12Protocol(): boolean {
+        if (this.uses10FF()) return false;
+        const name = this.detectedModel || this.transport?.getDeviceName() || '';
+        return /(?:^|[\s_-])P12/i.test(name);
+    }
+
     /**
      * The legacy job-enable code a model answers. Most of the family takes
      * `02` (confirmed on the LP90 and what the original BleWebler sends); the
@@ -722,9 +729,9 @@ export class MarklifeDriver implements IPrinterDriver {
     public async printInit(options: UniversalPrintOptions): Promise<void> {
         this.lastOptions = options;
 
-        if (this.uses10FF()) {
-            // The official app sends no 1F-family setup to these models. Density
-            // travels on the module dialect, as one of three gears.
+        if (this.uses10FF() || this.usesP12Protocol()) {
+            // P12 protocol 4 also uses module density and frames each page in
+            // printPage. Its app sends no media-type, speed or auto-align setup.
             if (options.density) {
                 await this.sendCommand(Protocol.setLegacyDensity(Protocol.legacyDensityGear(options.density)));
             }
@@ -820,7 +827,8 @@ export class MarklifeDriver implements IPrinterDriver {
             }
         }
 
-        if (this.uses10FF()) {
+        const p12 = this.usesP12Protocol();
+        if (this.uses10FF() || p12) {
             // One buffer, framed exactly as the manufacturer's app frames it.
             const gap = this.lastOptions?.paper?.type === 'gap';
             const beforeDots = gap ? 0 : this.feedDots('before');
@@ -834,12 +842,12 @@ export class MarklifeDriver implements IPrinterDriver {
                 ? Protocol.gapAlign()
                 : afterDots > 0 ? Protocol.feedDots(afterDots) : new Uint8Array();
             const job = MarklifeDriver.concat(
-                Protocol.legacyWakeup(),
-                Protocol.legacyStartJob(this.legacyEnableByte()),
+                p12 ? Protocol.p12Wakeup() : Protocol.legacyWakeup(),
+                p12 ? Protocol.startJob() : Protocol.legacyStartJob(this.legacyEnableByte()),
                 beforeFeed,
                 encodeRasterGsV0({ width: hardwareWidth, height: hardwareHeight, data: hardwareData }),
                 afterFeed,
-                Protocol.endJobAlternate()
+                p12 ? Protocol.endJob() : Protocol.endJobAlternate()
             );
             // The official app paces this family at 30 ms even when the BLE
             // flow-control characteristic is available.
@@ -873,8 +881,8 @@ export class MarklifeDriver implements IPrinterDriver {
     public async printEnd(): Promise<void> {
         if (!this.transport || !this.writeCharacteristicId) throw new Error("Transport not bound");
 
-        if (this.uses10FF()) {
-            // The complete legacy job, including its one trailing feed, was
+        if (this.uses10FF() || this.usesP12Protocol()) {
+            // The complete raw-raster job, including its one trailing feed, was
             // sent by printPage.
             await new Promise(r => setTimeout(r, 300));
             this.flowControl.reset();

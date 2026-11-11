@@ -23,6 +23,7 @@ describe('marklife command set', () => {
         expect(hex(Protocol.startJob())).toBe('1f c0 01 00');
         expect(hex(Protocol.endJob())).toBe('1f c0 01 01');
         expect(hex(Protocol.endJobAlternate())).toBe('10 ff f1 45');
+        expect(hex(Protocol.p12Wakeup())).toBe('00 00 00 00 00 00');
     });
 
     it('frames media type with the values the hardware accepts', () => {

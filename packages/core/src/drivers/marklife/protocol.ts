@@ -50,6 +50,9 @@ export const endJob = (): Uint8Array => cmd(0x1f, 0xc0, 0x01, 0x01);
  */
 export const endJobAlternate = (): Uint8Array => cmd(0x10, 0xff, 0xf1, 0x45);
 
+/** Six zero bytes precede each P12 job (manufacturer protocol 4). */
+export const p12Wakeup = (): Uint8Array => new Uint8Array(6);
+
 // ---- legacy `10 FF` job framing ------------------------------------------
 //
 // What the manufacturer's app sends to the models in MARKLIFE_10FF_PREFIXES
