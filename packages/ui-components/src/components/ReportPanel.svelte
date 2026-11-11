@@ -144,6 +144,7 @@
             printDensity: printContext?.printDensity,
             printCopies: printContext?.printCopies,
             printSpeed: printContext?.printSpeed,
+            printFeedEdge: printContext?.printFeedEdge,
             printResult: printContext?.printResult,
             diagnosticCandidates: diagnosticContext?.candidateDrivers
         };

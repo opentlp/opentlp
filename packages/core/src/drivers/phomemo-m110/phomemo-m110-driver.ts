@@ -64,6 +64,15 @@ export class PhomemoM110Driver implements IPrinterDriver {
 
     private transport?: IDeviceTransport;
     private deviceName = '';
+    private selectedModel?: M110Model;
+
+    setModel(idOrName: string): void {
+        const value = idOrName.trim().toLowerCase();
+        const index = PHOMEMO_M110_MODELS.findIndex((profile, index) =>
+            [profile.id, profile.model, ...(MODELS[index].bluetoothPrefixes ?? [])]
+                .some(name => name.toLowerCase() === value));
+        this.selectedModel = index >= 0 ? MODELS[index] : undefined;
+    }
 
     isCompatible(deviceName: string): boolean {
         const upper = deviceName.trim().toUpperCase();
@@ -88,6 +97,7 @@ export class PhomemoM110Driver implements IPrinterDriver {
     async unbindTransport(): Promise<void> {
         this.transport = undefined;
         this.deviceName = '';
+        this.selectedModel = undefined;
     }
 
     getCapabilities(): PrinterCapabilities {
@@ -122,7 +132,7 @@ export class PhomemoM110Driver implements IPrinterDriver {
     }
 
     private matchModel(): M110Model {
-        return [...MODELS]
+        return this.selectedModel ?? [...MODELS]
             .sort((a, b) => b.model.length - a.model.length)
             .find(model => [model.model, ...(model.bluetoothPrefixes ?? [])].some(name => {
                 const upper = name.toUpperCase();

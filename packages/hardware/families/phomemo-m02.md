@@ -30,6 +30,10 @@ commands:
 status: reported
 
 sources:
+  - kind: vendor-doc
+    url: https://play.google.com/store/apps/details?id=com.quyin.phomemo
+    title: Phomemo 4.0.0 Android SDK
+    note: M02 Pro and sandymaro resolve to a 576-dot roll bitmap at 0.0847 mm per dot; see docs/PHOMEMO-VERIFICATION.md in the OpenTLP repository for APK identity and class references.
   - kind: oss-project
     url: https://github.com/vivier/phomemo-tools/blob/master/README.md#4-protocol-for-m02
     licence: GPL-3.0
@@ -50,6 +54,6 @@ sources:
 ---
 
 M02, M02S and M02X use 48-byte/384-dot rows in the current public model
-tables. M02 Pro uses a 78-byte row at 300 dpi. One source describes the Pro as
-626 dots, but an integral 78-byte row carries 624 dots; hardware confirmation
-is needed to explain the discrepancy.
+tables. Phomemo 4.0.0's SDK uses a 576-dot roll bitmap for M02 Pro at 300 dpi,
+equivalent to 72 bytes per row. Earlier public tables used 78 bytes (624 dots)
+or described the Pro as 626 dots. Physical output remains unverified.

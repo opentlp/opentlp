@@ -36,7 +36,7 @@ describe('PhomemoM02Driver', () => {
     it('keeps the 300 dpi Pro raster width separate', async () => {
         const driver = new PhomemoM02Driver();
         await driver.bindTransport(new MockTransport('M02PRO'));
-        expect(driver.getCapabilities().canvasHeightPx).toBe(624);
+        expect(driver.getCapabilities().canvasHeightPx).toBe(576);
         expect(driver.getCapabilities().dpmm).toBe(12);
     });
 
@@ -48,8 +48,35 @@ describe('PhomemoM02Driver', () => {
 
         const proDriver = new PhomemoM02Driver();
         await proDriver.bindTransport(new MockTransport('sandymaro'));
-        expect(proDriver.getCapabilities().canvasHeightPx).toBe(624);
+        expect(proDriver.getCapabilities().canvasHeightPx).toBe(576);
         expect(proDriver.getCapabilities().dpmm).toBe(12);
+    });
+
+    it.each(['phomemo_m02_pro', 'M02 Pro', 'M02PRO', 'sandymaro'])('honours an explicit Pro selection %s on serial', async model => {
+        const driver = new PhomemoM02Driver();
+        driver.setModel(model);
+        const transport = new MockTransport('Serial Printer');
+        await driver.bindTransport(transport);
+        expect(driver.getCapabilities()).toMatchObject({ canvasHeightPx: 576, dpmm: 12 });
+        const data = new Uint8Array(576 * 4).fill(255);
+        for (const y of [0, 575]) data.fill(0, y * 4, y * 4 + 3);
+        await driver.printPage(monoPage({ width: 1, height: 576, data }));
+        expect([...transport.writes[0]]).toEqual([0x1d, 0x76, 0x30, 0, 72, 0, 1, 0]);
+        expect(transport.writes[1][0]).toBe(0x80);
+        expect(transport.writes[1][71]).toBe(0x01);
+    });
+
+    it('clears explicit selection on disconnect and falls back to name detection', async () => {
+        const driver = new PhomemoM02Driver();
+        driver.setModel('phomemo_m02_pro');
+        await driver.bindTransport(new MockTransport('M02'));
+        expect(driver.getCapabilities().dpmm).toBe(12);
+        await driver.unbindTransport();
+        await driver.bindTransport(new MockTransport('M02'));
+        expect(driver.getCapabilities().dpmm).toBe(8);
+        driver.setModel('unknown');
+        await driver.bindTransport(new MockTransport('M02PRO'));
+        expect(driver.getCapabilities().dpmm).toBe(12);
     });
 
     it('emits wake, setup, raster and minimal feed in order', async () => {

@@ -201,6 +201,8 @@ export interface UniversalPrintOptions {
     density: number;
     copies: number;
     speed?: number; // Optional speed setting if supported
+    /** Design edge that enters the printer first. Defaults to left (canvas X = feed). */
+    feedEdge?: 'left' | 'top' | 'right' | 'bottom';
     
     /** The physical paper being printed on */
     paper?: PaperProfile;

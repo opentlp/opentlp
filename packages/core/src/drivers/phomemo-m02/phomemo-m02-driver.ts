@@ -20,7 +20,7 @@ const MODELS: readonly M02Model[] = [
     { model: 'M02', headDots: 384, dpmm: 8, mediaWidthMm: 48, bluetoothNames: ['M02C', 'Mr.in', 'Mr.in_M02'] },
     { model: 'M02S', headDots: 384, dpmm: 8, mediaWidthMm: 48, bluetoothNames: ['Mr.in_M02S'] },
     { model: 'M02X', headDots: 384, dpmm: 8, mediaWidthMm: 48, bluetoothNames: ['M02D', 'M02E', 'MR2', 'M02A', 'KP-Q1'] },
-    { model: 'M02 Pro', headDots: 624, dpmm: 12, mediaWidthMm: 53, bluetoothNames: ['M02PRO', 'sandymaro'] }
+    { model: 'M02 Pro', headDots: 576, dpmm: 12, mediaWidthMm: 53, bluetoothNames: ['M02PRO', 'sandymaro'] }
 ];
 
 function capabilities(model: M02Model): PrinterCapabilities {
@@ -67,6 +67,14 @@ export class PhomemoM02Driver implements IPrinterDriver {
 
     private transport?: IDeviceTransport;
     private deviceName = '';
+    private selectedModel?: M02Model;
+
+    setModel(idOrName: string): void {
+        const value = idOrName.trim().toLowerCase();
+        const index = PHOMEMO_M02_MODELS.findIndex(profile =>
+            [profile.id, profile.model, ...(profile.aliases ?? [])].some(name => name.toLowerCase() === value));
+        this.selectedModel = index >= 0 ? MODELS[index] : undefined;
+    }
 
     isCompatible(deviceName: string): boolean {
         const upper = deviceName.trim().toUpperCase();
@@ -88,6 +96,7 @@ export class PhomemoM02Driver implements IPrinterDriver {
     async unbindTransport(): Promise<void> {
         this.transport = undefined;
         this.deviceName = '';
+        this.selectedModel = undefined;
     }
 
     getCapabilities(): PrinterCapabilities {
@@ -112,7 +121,7 @@ export class PhomemoM02Driver implements IPrinterDriver {
     }
 
     private matchModel(): M02Model {
-        return MODELS.find(model => this.matchesModelName(this.deviceName, model)) ?? MODELS[0];
+        return this.selectedModel ?? MODELS.find(model => this.matchesModelName(this.deviceName, model)) ?? MODELS[0];
     }
 
     private matchesModelName(deviceName: string, model: M02Model): boolean {

@@ -263,6 +263,58 @@ describe('PrintManager', () => {
         expect(boundDriver.name).toBe('Marklife-0x10FF');
     });
 
+    it.each([
+        ['phomemo_m02_pro', 576, 12],
+        ['phomemo_m220', 576, 8]
+    ])('applies %s geometry when connecting through generic serial', async (modelId, canvasHeightPx, dpmm) => {
+        await printManager.connect(new FastMockTransport('Serial Printer'), undefined, modelId);
+        expect(printManager.getActiveModelProfile()?.id).toBe(modelId);
+        expect(printManager.getCapabilities()).toMatchObject({ canvasHeightPx, dpmm });
+        await printManager.disconnect();
+        await printManager.connect(new FastMockTransport(modelId === 'phomemo_m220' ? 'M110' : 'M02'));
+        expect(printManager.getCapabilities().canvasHeightPx).toBe(modelId === 'phomemo_m220' ? 344 : 384);
+    });
+
+    it('rotates the M220 label to print the top edge first over serial', async () => {
+        const transport = new FastMockTransport('Serial Printer');
+        const write = vi.spyOn(transport, 'write');
+        await printManager.connect(transport, undefined, 'phomemo_m220');
+        // Asymmetric corner marks on the reported 30 x 15 mm page.
+        const data = new Uint8Array(240 * 120 * 4).fill(255);
+        for (const [x, y] of [[0, 0], [239, 0], [0, 119]]) {
+            const offset = (y * 240 + x) * 4;
+            data.fill(0, offset, offset + 3);
+        }
+        vi.useFakeTimers();
+        try {
+            const job = printManager.print(monoPage({ width: 240, height: 120, data }), {
+                density: 8, copies: 1, feedEdge: 'top'
+            });
+            await vi.runAllTimersAsync();
+            await job;
+        } finally {
+            vi.useRealTimers();
+        }
+        const writes = write.mock.calls as unknown as [Uint8Array][];
+        expect([...writes[3][0]]).toEqual([0x1d, 0x76, 0x30, 0, 72, 0, 120, 0]);
+        const raster = new Uint8Array(writes.slice(4, -1).flatMap(([bytes]) => [...bytes]));
+        // Top edge is the first wire row; original left/right stay ordered across the head.
+        expect(raster[21]).toBe(0x80);
+        expect(raster[50]).toBe(0x01);
+        expect(raster[119 * 72 + 21]).toBe(0x80);
+        expect(raster[119 * 72 + 50]).toBe(0);
+    });
+
+    it('rejects an orientation wider than the M220 head before sending commands', async () => {
+        const transport = new FastMockTransport('Serial Printer');
+        const write = vi.spyOn(transport, 'write');
+        await printManager.connect(transport, undefined, 'phomemo_m220');
+        await expect(printManager.print(monoPage({
+            width: 600, height: 120, data: new Uint8Array(600 * 120 * 4)
+        }), { density: 8, copies: 1, feedEdge: 'top' })).rejects.toThrow(/printable width/);
+        expect(write).not.toHaveBeenCalled();
+    });
+
     it('throws ambiguous driver error when P12 connects without a model preference', async () => {
         const transport = new FastMockTransport('P12_B123', ['0000ff00-0000-1000-8000-00805f9b34fb']);
         await expect(printManager.connect(transport)).rejects.toThrow(/match multiple drivers/i);

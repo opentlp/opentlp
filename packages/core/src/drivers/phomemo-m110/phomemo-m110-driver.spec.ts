@@ -38,6 +38,30 @@ describe('PhomemoM110Driver', () => {
         expect(wide.getCapabilities().canvasHeightPx).toBe(576);
     });
 
+    it.each(['phomemo_m220', 'M220', 'q054', 'Q155'])('honours explicit M220 selection %s on serial', async model => {
+        const driver = new PhomemoM110Driver();
+        driver.setModel(model);
+        const transport = new MockTransport('Serial Printer');
+        await driver.bindTransport(transport);
+        expect(driver.getCapabilities()).toMatchObject({ canvasHeightPx: 576, dpmm: 8 });
+        await driver.printPage(monoPage({ width: 1, height: 576, data: new Uint8Array(576 * 4).fill(255) }));
+        expect([...transport.writes[0]]).toEqual([0x1d, 0x76, 0x30, 0, 72, 0, 1, 0]);
+        expect(transport.writes[1]).toHaveLength(72);
+    });
+
+    it('does not retain M220 geometry after disconnect', async () => {
+        const driver = new PhomemoM110Driver();
+        driver.setModel('phomemo_m220');
+        await driver.bindTransport(new MockTransport('M110'));
+        expect(driver.getCapabilities().canvasHeightPx).toBe(576);
+        await driver.unbindTransport();
+        await driver.bindTransport(new MockTransport('M110'));
+        expect(driver.getCapabilities().canvasHeightPx).toBe(344);
+        driver.setModel('unknown');
+        await driver.bindTransport(new MockTransport('Q054_1234'));
+        expect(driver.getCapabilities().canvasHeightPx).toBe(576);
+    });
+
     it('emits model setup, raster and the captured footer', async () => {
         const driver = new PhomemoM110Driver();
         const transport = new MockTransport('M110');

@@ -497,6 +497,20 @@ describe('successful-print evidence', () => {
 // buildGitHubIssueUrl
 // ---------------------------------------------------------------------------
 
+describe('print orientation diagnostics', () => {
+    it.each(['left', 'top', 'right', 'bottom'] as const)('includes the %s feed edge in reports', edge => {
+        const markdown = buildReportMarkdown('print-problem', baseHuman(), { ...baseAuto(), printFeedEdge: edge });
+        expect(markdown).toContain(`- **Edge printed first:** ${edge}`);
+    });
+
+    it('omits unrecognised feed edges from untyped callers', () => {
+        const markdown = buildReportMarkdown('print-problem', baseHuman(), {
+            ...baseAuto(), printFeedEdge: 'not-an-edge' as AutomaticDiagnostics['printFeedEdge']
+        });
+        expect(markdown).not.toContain('Edge printed first');
+    });
+});
+
 describe('buildGitHubIssueUrl', () => {
     it('targets the OpenTLP issues/new endpoint', () => {
         const url = buildGitHubIssueUrl('print-problem', baseHuman(), baseAuto());

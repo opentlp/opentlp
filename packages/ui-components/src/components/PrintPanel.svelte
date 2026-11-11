@@ -44,6 +44,10 @@
     let activePaper = $derived(allPapers.find(p => p.id === activePaperId) || editor.design.paper || DEFAULT_PAPER_PROFILES[0]);
     
     let speed = $state(1);
+    let feedEdge = $state<NonNullable<UniversalPrintOptions['feedEdge']>>('left');
+    const sideways = $derived(feedEdge === 'top' || feedEdge === 'bottom');
+    const outputWidthPx = $derived(sideways ? editor.design.heightPx : editor.design.widthPx);
+    const outputHeightPx = $derived(sideways ? editor.design.widthPx : editor.design.heightPx);
     let printError = $state('');
     let printedOk = $state(false);
     let printing = $state(false);
@@ -83,8 +87,8 @@
         ? Math.min(caps.canvasHeightPx, Math.round(activePaper.tapeWidthMm * caps.dpmm))
         : editor.design.heightPx
     );
-    const designHeightMm = $derived(editor.design.heightPx / editor.pxPerMm);
-    const heightMismatch = $derived(caps !== undefined && editor.design.heightPx !== printableHeightPx);
+    const designHeightMm = $derived(outputHeightPx / editor.pxPerMm);
+    const heightMismatch = $derived(caps !== undefined && outputHeightPx !== printableHeightPx);
 
     /**
      * How many separated ink planes this printer accepts. The renderer resolves
@@ -137,6 +141,7 @@
                 paper: activePaper,
                 density,
                 copies: requestedCopies,
+                feedEdge,
                 ...(caps?.supportsSpeedMode ? { speed } : {}),
                 ...(activePaper.type === 'continuous' ? { feedOverrides: {
                     feedBeforeMm: feedPlan.beforeDots !== undefined ? feedPlan.beforeDots / caps!.dpmm : undefined,
@@ -170,6 +175,7 @@
             paperType: activePaper.type,
             printDensity: density,
             printCopies: requestedCopies,
+            printFeedEdge: feedEdge,
             ...(caps?.supportsSpeedMode ? { printSpeed: speed } : {}),
             printResult
         };
@@ -218,10 +224,13 @@
     {:else}
         {#if heightMismatch}
             <div class="warn">
-                Design height ({designHeightMm.toFixed(1)}mm) doesn't match this paper's
+                Across-roll design size ({designHeightMm.toFixed(1)}mm) doesn't match this paper's
                 {printableHeightPx}px printable width.
                 <button onclick={() => {
-                    editor.setLabelSize(editor.design.widthPx, printableHeightPx);
+                    editor.setLabelSize(
+                        sideways ? printableHeightPx : editor.design.widthPx,
+                        sideways ? editor.design.heightPx : printableHeightPx
+                    );
                 }}>
                     Resize design to printable width
                 </button>
@@ -281,6 +290,19 @@
                 </label>
             {/if}
         </div>
+        <label class="opt">
+            Edge printed first
+            <select bind:value={feedEdge} disabled={printing}>
+                <option value="left">Left edge</option>
+                <option value="top">Top edge</option>
+                <option value="right">Right edge</option>
+                <option value="bottom">Bottom edge</option>
+            </select>
+        </label>
+        <div class="hint">Output: {(outputHeightPx / editor.pxPerMm).toFixed(1)} mm across the roll × {(outputWidthPx / editor.pxPerMm).toFixed(1)} mm along the feed. For a label printed sideways, choose Top edge or Bottom edge to match the loaded roll.</div>
+        {#if outputHeightPx > caps.canvasHeightPx}
+            <div class="warn">This orientation exceeds the printer's printable width. Choose another edge or resize the label.</div>
+        {/if}
         {#if activePaper.type === 'continuous'}
             {#if feedPlan.canBalance}
                 <label class="opt">
@@ -292,7 +314,7 @@
                         <option value="custom">Custom feed</option>
                     </select>
                 </label>
-                <div class="hint">Expected white margin: {(feedPlan.leadingMarginDots / caps.dpmm).toFixed(1)} mm before, {(feedPlan.trailingMarginDots / caps.dpmm).toFixed(1)} mm after print. Approximate cut length: {((editor.design.widthPx + feedPlan.leadingMarginDots + feedPlan.trailingMarginDots) / caps.dpmm).toFixed(1)} mm. Assumes tape starts at the cutter.</div>
+                <div class="hint">Expected white margin: {(feedPlan.leadingMarginDots / caps.dpmm).toFixed(1)} mm before, {(feedPlan.trailingMarginDots / caps.dpmm).toFixed(1)} mm after print. Approximate cut length: {((outputWidthPx + feedPlan.leadingMarginDots + feedPlan.trailingMarginDots) / caps.dpmm).toFixed(1)} mm. Assumes tape starts at the cutter.</div>
             {/if}
             {#if caps.mediaDefaults?.feedBeforeDefaultPx !== undefined || caps.mediaDefaults?.feedAfterDefaultPx !== undefined}
             <details class="advanced" bind:open={editor.showAdvancedFeedingPreview}>
@@ -334,7 +356,7 @@
         {/if}
         <button
             class="primary print"
-            disabled={snap.state !== 'connected' || printing}
+            disabled={snap.state !== 'connected' || printing || outputHeightPx > caps.canvasHeightPx}
             onclick={print}
         >
             {printing ? 'Printing…' : `Print ${copies > 1 ? copies + ' copies' : 'label'}`}

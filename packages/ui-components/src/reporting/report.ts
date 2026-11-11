@@ -91,6 +91,7 @@ export interface PrintReportContext {
     printDensity: number;
     printCopies: number;
     printSpeed?: number;
+    printFeedEdge?: 'left' | 'top' | 'right' | 'bottom';
     /** "sent" means Studio transmitted the job; it does not claim the physical output was correct. */
     printResult: PrintResult;
 }
@@ -185,6 +186,7 @@ export interface AutomaticDiagnostics {
     printDensity?: number;
     printCopies?: number;
     printSpeed?: number;
+    printFeedEdge?: 'left' | 'top' | 'right' | 'bottom';
     printResult?: PrintResult;
     diagnosticCandidates?: DiagnosticReportContext['candidateDrivers'];
 }
@@ -415,7 +417,7 @@ export function buildReportMarkdown(kind: ReportKind, human: HumanDetails, auto:
         errorCode,
         pageWidthPx, pageHeightPx, pageWidthMm, pageHeightMm, mediaWidthMm,
         paperType,
-        printDensity, printCopies, printSpeed, printResult,
+        printDensity, printCopies, printSpeed, printFeedEdge, printResult,
         diagnosticCandidates
     } = auto;
 
@@ -504,6 +506,9 @@ export function buildReportMarkdown(kind: ReportKind, human: HumanDetails, auto:
     if (Number.isFinite(mediaWidthMm)) lines.push(`- **Physical media width:** ${mediaWidthMm} mm`);
 
     if (paperType) lines.push(`- **Paper type:** ${sanitize(paperType, MAX_SHORT)}`);
+    if (printFeedEdge && ['left', 'top', 'right', 'bottom'].includes(printFeedEdge)) {
+        lines.push(`- **Edge printed first:** ${printFeedEdge}`);
+    }
 
     const printParts: string[] = [];
     if (Number.isFinite(printDensity)) printParts.push(`density ${printDensity}`);

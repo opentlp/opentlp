@@ -5,6 +5,7 @@ import type { LoadedMedia, PrinterStatus, StatusField } from "../drivers/printer
 import { PrinterError, toPrinterError } from "../drivers/printer-error";
 import type { UniversalPage } from "../types/ink";
 import { reduceToChannels } from "../types/ink";
+import { orientPageForFeed } from './page-orientation';
 
 import { MarklifeDriver } from "../drivers/marklife";
 import { NiimbotDriver } from "../drivers/niimbot";
@@ -719,8 +720,12 @@ export class PrintManager extends EventEmitter<PrintManagerEvents> {
             throw new Error("Printer is currently busy.");
         }
 
-        const channels = this.activeDriver.getCapabilities().colorSupport.channels ?? 1;
-        const forDriver = reduceToChannels(page, channels);
+        const capabilities = this.activeDriver.getCapabilities();
+        const channels = capabilities.colorSupport.channels ?? 1;
+        const forDriver = orientPageForFeed(reduceToChannels(page, channels), options.feedEdge);
+        if (options.feedEdge && options.feedEdge !== 'left' && forDriver.height > capabilities.canvasHeightPx) {
+            throw new RangeError('This orientation exceeds the printer\'s printable width. Choose another edge or resize the label.');
+        }
 
         this.isPrinting = true;
         this.emit("printing");

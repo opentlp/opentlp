@@ -126,12 +126,21 @@ Implementation: `packages/core/src/drivers/phomemo-m110/phomemo-m110-driver.ts`
 | [phomemo-tools protocol documentation](https://github.com/vivier/phomemo-tools/blob/master/README.md#5-protocol-for-m110m120m220) | public documentation, GPL-3.0 | Captured speed/density ranges, three media values, GS v 0 dimensions, 43-byte M110 sample width, footer, and the M110/M120/M220 family association. Protocol facts only; no GPL source code copied. |
 | [transcriptionstream/phomymo](https://github.com/transcriptionstream/phomymo/tree/1f58d3f0e7f941b9143277cda828380149e56855) | `1f58d3f`; conflicting MIT/ISC metadata, no licence file | FF00/FF02/FF03 GATT layout, BLE pacing, model metadata and an independent implementation of the job sequence. Protocol facts only; no source code copied. |
 
+Original-app verification (Print Master 5.21.1) confirms the M220's 576-dot,
+72 mm geometry and configurable image rotation. APK identities and class
+references are recorded in [PHOMEMO-VERIFICATION.md](PHOMEMO-VERIFICATION.md).
+
 The 344-dot M110/M120 width follows the captured 43-byte row in the protocol
 documentation. Public implementations disagree and one uses 384 dots, so the
 profiles remain explicitly untested. M220 uses its separately documented
 72 mm/576-dot model width with the same command family.
 
 ## Phomemo M02
+
+Original-app verification (Phomemo 4.0.0) gives the Pro a 576-dot roll bitmap
+at 300 dpi on 53 mm stock, superseding the public 624-dot/78-byte table.
+See [PHOMEMO-VERIFICATION.md](PHOMEMO-VERIFICATION.md) for APK identity and
+class references.
 
 Implementation: `packages/core/src/drivers/phomemo-m02/phomemo-m02-driver.ts`
 
@@ -141,9 +150,9 @@ Implementation: `packages/core/src/drivers/phomemo-m02/phomemo-m02-driver.ts`
 | [transcriptionstream/phomymo](https://github.com/transcriptionstream/phomymo/tree/1f58d3f0e7f941b9143277cda828380149e56855) | `1f58d3f`; conflicting MIT/ISC metadata, no licence file | M02 wake prefix, FF00 GATT transport, density setup, 128-byte pacing, minimal feed and M02X/Pro model metadata. Protocol facts only; no source code copied. |
 | [Dejniel/TiMini-Print](https://github.com/Dejniel/TiMini-Print/tree/a9a456c4243132bad52c500e39bdec221fe98db9) | `a9a456c`, Apache-2.0 | Exact advertising-name mappings for the M02, M02S, M02X and M02 Pro profiles. Catalogue facts only; no source code copied. |
 
-The Pro profile uses 78 whole bytes (624 dots) per row. A public README calls
-the geometry 626 dots, which cannot be represented by that row width; the
-protocol-aligned value is used pending hardware validation.
+The Pro profile uses 72 whole bytes (576 dots) per row, following the original
+Phomemo SDK. Public claims of 624 or 626 dots are retained as historical
+discrepancies in its hardware record; physical output remains unverified.
 
 ## PeriPage raw GS v 0
 
