@@ -245,6 +245,12 @@ Classic/SPP. No S001 GATT service and characteristic pair has been verified, so
 Web Bluetooth is rejected with an actionable error instead of guessing UUIDs
 from another YK-framed printer.
 
+Physical validation: An ORGSTA S001 was tested with the OpenTLP implementation.
+The initial raster output was mirrored horizontally. Reversing the cross-head
+raster coordinate corrected the orientation, and the resulting labels were
+physically verified to print correctly. This observation is based on direct
+hardware testing; no third-party implementation code was used.
+
 ## Nelko P21 / TSPL2 subset
 
 Implementation: `packages/core/src/drivers/nelko-p21`

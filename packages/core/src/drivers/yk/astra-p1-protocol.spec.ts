@@ -16,17 +16,29 @@ describe('YK Astra P1 protocol', () => {
         const slices = rasterSlices(encodeRaster({ width: 4, height: 90, data: rgba }));
         expect(slices).toHaveLength(1);
         expect(slices[0]).toHaveLength(48);
-        expect(slices[0][0]).toBe(0x02);
-        expect(slices[0].slice(1)).toEqual(new Uint8Array(47));
+        expect(slices[0][11]).toBe(0x01);
+        expect(slices[0].slice(0, 11)).toEqual(new Uint8Array(11));
+        expect(slices[0].slice(12)).toEqual(new Uint8Array(36));
     });
 
-    it('places a one-dot-high image at bit 6 of the first byte (0x02), never centering', () => {
+    it('places the first editor pixel at the far end of the 96-dot head (0x01), preserving the six-dot margin', () => {
         const rgba = new Uint8Array(1 * 1 * 4).fill(255);
         rgba[3] = 255;
         rgba[0] = rgba[1] = rgba[2] = 0;
         const raster = encodeRaster({ width: 1, height: 1, data: rgba });
         expect(raster).toHaveLength(12);
-        expect(raster[0]).toBe(0x02);
-        expect(raster.slice(1)).toEqual(new Uint8Array(11));
+        expect(raster[11]).toBe(0x01);
+        expect(raster.slice(0, 11)).toEqual(new Uint8Array(11));
+    });
+
+    it('reverses the editor cross-head axis for the physical S001 print direction', () => {
+        const rgba = new Uint8Array(1 * 2 * 4);
+        for (let i = 0; i < rgba.length; i += 4) {
+            rgba[i] = rgba[i + 1] = rgba[i + 2] = 0;
+            rgba[i + 3] = 255;
+        }
+        const raster = encodeRaster({ width: 1, height: 2, data: rgba });
+        expect(raster.slice(0, 11)).toEqual(new Uint8Array(11));
+        expect(raster[11]).toBe(0x03);
     });
 });

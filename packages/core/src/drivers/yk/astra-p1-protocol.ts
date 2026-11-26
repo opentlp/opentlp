@@ -63,7 +63,7 @@ export function specialFeedPayload(mode: number, distanceDots: number): Uint8Arr
     return Uint8Array.of(mode, ...feedPayload(distanceDots));
 }
 
-/** Pack the editor canvas into 96-dot, MSB-first S001 rows with six leading blank dots. */
+/** Pack the editor canvas into 96-dot, MSB-first S001 rows, reversing the editor's cross-head axis. */
 export function encodeRaster(image: UniversalImageData): Uint8Array {
     if (image.height > PRINTABLE_DOTS) {
         throw new RangeError(`S001 raster height ${image.height} exceeds ${PRINTABLE_DOTS} printable dots.`);
@@ -78,7 +78,7 @@ export function encodeRaster(image: UniversalImageData): Uint8Array {
                 + (image.data[source + 1] ?? 255)
                 + (image.data[source + 2] ?? 255)) / 3;
             if (luminance > 200) continue;
-            const headDot = LEFT_PADDING_DOTS + y;
+            const headDot = HEAD_DOTS - 1 - y;
             output[(x * ROW_BYTES) + (headDot >>> 3)] |= 0x80 >>> (headDot & 7);
         }
     }

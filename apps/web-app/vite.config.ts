@@ -56,7 +56,6 @@ export default defineConfig({
   },
   optimizeDeps: {
     exclude: [
-      '@mmote/niimbluelib',
       'universal-label-core',
       'universal-label-core/transport/web',
       'universal-label-core/transport/dummy',
