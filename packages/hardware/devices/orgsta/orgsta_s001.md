@@ -28,10 +28,10 @@ support:
     level: listed
     notes: Source of the S001 profile and YK Astra P1 job recipe.
   blewebler2:
-    level: listed
-    notes: Experimental SPP/serial implementation added in 85f2680; hardware validation needed.
+    level: works
+    notes: Verified over Bluetooth Classic/SPP on ORGSTA S001 firmware 42.38 after the cross-head raster orientation fix.
 
-status: unverified
+status: verified
 
 sources:
   - kind: vendor-doc
@@ -45,6 +45,9 @@ sources:
     url: https://github.com/josb25/BleWebler2/commit/85f2680
     licence: MIT
     note: Implements and tests the S001 YK-framed protocol over raw serial transports.
+  - kind: user-report
+    url: https://github.com/opentlp/opentlp/pull/11
+    note: Physical print verification on ORGSTA S001 (firmware 42.38) over Bluetooth Classic/SPP, confirming reversed cross-head raster orientation.
 ---
 
 The head carries 96 bits per row, but the captured S001 recipe reserves six
@@ -58,5 +61,5 @@ is available.
 
 ## Not yet recorded
 
-Firmware revisions, status replies, power details, exact media catalogue and a
-physical print result from this implementation.
+Status replies, power details, exact media catalogue and any BLE GATT
+service/characteristic pair.

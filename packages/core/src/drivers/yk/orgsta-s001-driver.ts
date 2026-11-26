@@ -19,9 +19,9 @@ export const ORGSTA_S001_MODELS: PrinterModelProfile[] = [{
     brand: 'Orgsta',
     model: 'S001',
     family: 'YK Astra P1 framed raster',
-    supportLevel: 'Untested',
+    supportLevel: 'Tested',
     capabilities: capabilities(),
-    notes: 'Experimental 90-dot printable S001 profile over Bluetooth Classic/SPP or another raw serial transport.'
+    notes: '90-dot printable S001 profile verified over Bluetooth Classic/SPP (firmware 42.38).'
 }];
 
 export class OrgstaS001Driver implements IPrinterDriver {
